@@ -1,0 +1,42 @@
+import { NextRequest, NextResponse } from 'next/server';
+import Replicate from 'replicate';
+
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN,
+});
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Prediction ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const prediction = await replicate.predictions.get(id);
+
+    return NextResponse.json({
+      id: prediction.id,
+      status: prediction.status,
+      output: prediction.output,
+      error: prediction.error,
+      metrics: prediction.metrics,
+      input: prediction.input,
+      created_at: prediction.created_at,
+      completed_at: prediction.completed_at,
+    });
+
+  } catch (error) {
+    console.error('Prediction fetch error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch prediction status' },
+      { status: 500 }
+    );
+  }
+}
