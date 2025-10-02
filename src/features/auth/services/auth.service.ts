@@ -1,0 +1,190 @@
+import { supabase } from '@/lib/db/supabase/client';
+import type { SignInCredentials, AuthError, AuthUser, AuthSession } from '../types/auth.types';
+
+export class AuthService {
+  /**
+   * Sign in with email and password
+   */
+  static async signIn(credentials: SignInCredentials): Promise<{
+    user: AuthUser | null;
+    session: AuthSession | null;
+    error: AuthError | null;
+  }> {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
+      });
+
+      if (error) {
+        return {
+          user: null,
+          session: null,
+          error: { message: error.message, code: error.status?.toString() },
+        };
+      }
+
+      return {
+        user: data.user,
+        session: data.session,
+        error: null,
+      };
+    } catch {
+      return {
+        user: null,
+        session: null,
+        error: { message: 'An unexpected error occurred' },
+      };
+    }
+  }
+
+  /**
+   * Sign out current user
+   */
+  static async signOut(): Promise<{ error: AuthError | null }> {
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        return { error: { message: error.message } };
+      }
+
+      return { error: null };
+    } catch {
+      return { error: { message: 'An unexpected error occurred' } };
+    }
+  }
+
+  /**
+   * Get current session
+   */
+  static async getSession(): Promise<{
+    session: AuthSession | null;
+    error: AuthError | null;
+  }> {
+    try {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        return {
+          session: null,
+          error: { message: error.message },
+        };
+      }
+
+      return {
+        session: data.session,
+        error: null,
+      };
+    } catch {
+      return {
+        session: null,
+        error: { message: 'An unexpected error occurred' },
+      };
+    }
+  }
+
+  /**
+   * Get current user
+   */
+  static async getUser(): Promise<{
+    user: AuthUser | null;
+    error: AuthError | null;
+  }> {
+    try {
+      const { data, error } = await supabase.auth.getUser();
+
+      if (error) {
+        return {
+          user: null,
+          error: { message: error.message },
+        };
+      }
+
+      return {
+        user: data.user,
+        error: null,
+      };
+    } catch {
+      return {
+        user: null,
+        error: { message: 'An unexpected error occurred' },
+      };
+    }
+  }
+
+  /**
+   * Listen to auth state changes
+   */
+  static onAuthStateChange(callback: (user: AuthUser | null) => void) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        callback(session?.user ?? null);
+      }
+    );
+
+    return subscription;
+  }
+
+  /**
+   * Request password reset email
+   */
+  static async requestPasswordReset(email: string): Promise<{
+    success: boolean;
+    error: AuthError | null;
+  }> {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+
+      if (error) {
+        return {
+          success: false,
+          error: { message: error.message },
+        };
+      }
+
+      return {
+        success: true,
+        error: null,
+      };
+    } catch {
+      return {
+        success: false,
+        error: { message: 'An unexpected error occurred' },
+      };
+    }
+  }
+
+  /**
+   * Update user password
+   */
+  static async updatePassword(newPassword: string): Promise<{
+    success: boolean;
+    error: AuthError | null;
+  }> {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        return {
+          success: false,
+          error: { message: error.message },
+        };
+      }
+
+      return {
+        success: true,
+        error: null,
+      };
+    } catch {
+      return {
+        success: false,
+        error: { message: 'An unexpected error occurred' },
+      };
+    }
+  }
+}
