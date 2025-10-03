@@ -2,11 +2,12 @@
 CREATE TABLE IF NOT EXISTS gallery (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    storage_path TEXT NOT NULL,
-    public_url TEXT NOT NULL,
-    file_size BIGINT NOT NULL,
-    mime_type TEXT NOT NULL,
+    storage_path TEXT,
+    public_url TEXT,
+    file_size BIGINT,
+    mime_type TEXT,
     metadata JSONB DEFAULT '{}'::jsonb,
+    prediction_id TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

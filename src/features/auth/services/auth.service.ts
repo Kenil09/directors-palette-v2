@@ -1,7 +1,12 @@
-import { supabase } from '@/lib/db/supabase/client';
+import { getClient } from "@/lib/db/client";
 import type { SignInCredentials, AuthError, AuthUser, AuthSession } from '../types/auth.types';
 
 export class AuthService {
+  private static supabasePromise = getClient(); // lazy init
+
+  private static async supabase() {
+    return await this.supabasePromise;
+  }
   /**
    * Sign in with email and password
    */
@@ -11,6 +16,7 @@ export class AuthService {
     error: AuthError | null;
   }> {
     try {
+      const supabase = await this.supabase();
       const { data, error } = await supabase.auth.signInWithPassword({
         email: credentials.email,
         password: credentials.password,
@@ -43,6 +49,7 @@ export class AuthService {
    */
   static async signOut(): Promise<{ error: AuthError | null }> {
     try {
+      const supabase = await getClient()
       const { error } = await supabase.auth.signOut();
 
       if (error) {
@@ -63,6 +70,7 @@ export class AuthService {
     error: AuthError | null;
   }> {
     try {
+      const supabase = await this.supabase();
       const { data, error } = await supabase.auth.getSession();
 
       if (error) {
@@ -92,6 +100,7 @@ export class AuthService {
     error: AuthError | null;
   }> {
     try {
+      const supabase = await this.supabase();
       const { data, error } = await supabase.auth.getUser();
 
       if (error) {
@@ -116,8 +125,9 @@ export class AuthService {
   /**
    * Listen to auth state changes
    */
-  static onAuthStateChange(callback: (user: AuthUser | null) => void) {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+  static async onAuthStateChange(callback: (user: AuthUser | null) => void) {
+    const supabase = await this.supabase();
+    const { data: { subscription } } = await supabase.auth.onAuthStateChange(
       (_event, session) => {
         callback(session?.user ?? null);
       }
@@ -134,6 +144,7 @@ export class AuthService {
     error: AuthError | null;
   }> {
     try {
+      const supabase = await this.supabase();
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset-password`,
       });
@@ -165,6 +176,7 @@ export class AuthService {
     error: AuthError | null;
   }> {
     try {
+      const supabase = await this.supabase();
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       });

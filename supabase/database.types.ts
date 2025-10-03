@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       gallery: {
         Row: {
+          prediction_id: string
           created_at: string
           file_size: number
           id: string
@@ -27,17 +28,19 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          prediction_id: string
           created_at?: string
-          file_size: number
+          file_size?: number
           id?: string
           metadata?: Json | null
-          mime_type: string
-          public_url: string
-          storage_path: string
+          mime_type?: string
+          public_url?: string
+          storage_path?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          prediction_id?: string
           created_at?: string
           file_size?: number
           id?: string

@@ -2,12 +2,12 @@ import { z } from 'zod';
 
 // Zod schemas for forms
 export const signInSchema = z.object({
-  email: z.email('Please enter a valid email address'),
+  email: z.string().email('Please enter a valid email address'),
   password: z.string().min(1, 'Password is required'),
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.email('Please enter a valid email address'),
+  email: z.string().email('Please enter a valid email address'),
 });
 
 export const resetPasswordSchema = z
