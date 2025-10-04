@@ -66,3 +66,6 @@ CREATE POLICY "Users can delete references for their gallery items" ON reference
             AND gallery.user_id = auth.uid()
         )
     );
+
+-- Add tables to realtime publication
+ALTER PUBLICATION supabase_realtime ADD TABLE reference;

@@ -1,3 +1,7 @@
+CREATE TYPE STATUS AS ENUM ('pending', 'processing', 'completed', 'failed', 'canceled');
+
+CREATE TYPE GENERATION_TYPE AS ENUM ('image', 'video');
+
 -- Create gallery table
 CREATE TABLE IF NOT EXISTS gallery (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -8,15 +12,21 @@ CREATE TABLE IF NOT EXISTS gallery (
     mime_type TEXT,
     metadata JSONB DEFAULT '{}'::jsonb,
     prediction_id TEXT NOT NULL,
+    status STATUS NOT NULL DEFAULT 'pending',
+    generation_type GENERATION_TYPE NOT NULL DEFAULT 'image',
+    error_message TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Create index for user_id for faster queries
-CREATE INDEX idx_gallery_user_id ON gallery(user_id);
+CREATE INDEX IF NOT EXISTS idx_gallery_user_id ON gallery(user_id);
 
 -- Create index for created_at for sorting
-CREATE INDEX idx_gallery_created_at ON gallery(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_gallery_created_at ON gallery(created_at DESC);
+
+-- Create index for generation_type
+CREATE INDEX IF NOT EXISTS idx_gallery_generation_type ON gallery(generation_type);
 
 -- Create trigger to automatically update updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -47,3 +57,6 @@ CREATE POLICY "Users can update their own gallery items" ON gallery
 
 CREATE POLICY "Users can delete their own gallery items" ON gallery
     FOR DELETE USING (auth.uid() = user_id);
+
+-- Add tables to realtime publication
+ALTER PUBLICATION supabase_realtime ADD TABLE gallery;
