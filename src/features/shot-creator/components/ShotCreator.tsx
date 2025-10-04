@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { useShotCreatorStore } from "../store/shot-creator.store"
-import { useShotCreatorSettings } from "../hooks"
+import { useShotCreatorSettings, useGalleryLoader } from "../hooks"
 import { Sparkles } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ModelSelector } from "./ModelSelector"
@@ -22,6 +22,9 @@ const ShotCreator = () => {
         onSendToShotAnimator,
         onSendToReferenceLibrary
     } = useShotCreatorStore()
+
+    // Load gallery from Supabase on mount
+    const { isLoading: isGalleryLoading } = useGalleryLoader()
 
     const isEditingMode = shotCreatorSettings.model === 'qwen-image-edit'
     const modelConfig = getModelConfig((shotCreatorSettings.model || 'nano-banana') as ModelId)
@@ -99,6 +102,7 @@ const ShotCreator = () => {
                             <TabsContent value="generated">
                                 <UnifiedImageGallery
                                     currentTab="shot-creator"
+                                    isLoading={isGalleryLoading}
                                     onSendToTab={(imageUrl, targetTab) => {
                                         if (targetTab === 'shot-editor' && onSendToImageEdit) {
                                             onSendToImageEdit(imageUrl)

@@ -29,6 +29,11 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // Skip authentication for webhook endpoints
+  if (request.nextUrl.pathname.startsWith('/api/webhooks/')) {
+    return supabaseResponse;
+  }
+
   // IMPORTANT: DO NOT REMOVE auth.getUser()
   // Do not run code between createServerClient and supabase.auth.getUser()
   const {

@@ -19,15 +19,12 @@ async function initializePromptLibrary(): Promise<void> {
     return
   }
 
-  console.log('🚀 Initializing Prompt Library at module level...')
-
   try {
     // Clear any existing duplicates immediately
     await clearAllPromptDuplicates()
 
     // Mark as initialized
     moduleInitialized = true
-    console.log('✅ Prompt Library module initialization completed')
 
   } catch (error) {
     console.error('❌ Prompt Library module initialization failed:', error)

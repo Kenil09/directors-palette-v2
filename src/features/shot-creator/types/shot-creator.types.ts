@@ -1,3 +1,20 @@
+export interface GalleryImage {
+    id?: string
+    url: string
+    prompt: string
+    timestamp: number
+    model?: string
+    creditsUsed?: number
+    source?: string
+    reference?: string
+    seed?: number
+    chain?: {
+        chainId: string
+        stepNumber: number
+        stepPrompt: string
+    }
+    metadata?: Record<string, unknown>
+}
 
 export interface ShotCreatorReferenceImage {
     id: string

@@ -1,4 +1,4 @@
-import { SettingsConfig } from '@/features/settings/types/setting.types'
+import { SettingsConfig, ShotCreatorSettings } from '@/features/settings/types/setting.types'
 import { defaultSettings } from '@/features/settings/constants'
 import { SupabaseSettingsRepository } from "@/lib/db/repositories/settings.repository"
 
@@ -60,10 +60,25 @@ export class SettingsServiceImpl implements SettingsService {
   }
 
   private mergeWithDefaults(userConfig: Partial<SettingsConfig>): SettingsConfig {
+    const shotCreatorConfig: Partial<ShotCreatorSettings> = userConfig.shotCreator || {}
+
+    // Handle promptLibrary with backward compatibility
+    let promptLibrary = defaultSettings.shotCreator.promptLibrary
+    if (shotCreatorConfig.promptLibrary) {
+      const userPromptLibrary = shotCreatorConfig.promptLibrary
+      const prompts = userPromptLibrary.prompts || []
+      promptLibrary = {
+        categories: userPromptLibrary.categories || defaultSettings.shotCreator.promptLibrary!.categories,
+        prompts,
+        quickPrompts: userPromptLibrary.quickPrompts || prompts.filter((p: { quickAccess: boolean }) => p.quickAccess)
+      }
+    }
+
     return {
       shotCreator: {
         ...defaultSettings.shotCreator,
-        ...(userConfig.shotCreator || {})
+        ...shotCreatorConfig,
+        promptLibrary
       },
       shotAnimator: {
         ...defaultSettings.shotAnimator,

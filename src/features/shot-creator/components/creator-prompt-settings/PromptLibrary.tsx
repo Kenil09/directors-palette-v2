@@ -46,9 +46,26 @@ export function PromptLibrary({ onSelectPrompt, showQuickAccess = true, classNam
 
   const {
     categories,
-    handleAddPrompt,
-    handleUpdatePrompt,
+    handleAddPrompt: addPrompt,
+    handleUpdatePrompt: updatePrompt,
   } = usePromptLibraryManager(onSelectPrompt)
+
+  const handleAddPromptClick = async () => {
+    const success = await addPrompt(newPrompt)
+    if (success) {
+      setIsAddPromptOpen(false)
+      setNewPrompt({ title: '', prompt: '', categoryId: 'custom', tags: '', isQuickAccess: false })
+    }
+  }
+
+  const handleUpdatePromptClick = async () => {
+    if (!editingPrompt) return
+    const success = await updatePrompt(editingPrompt)
+    if (success) {
+      setIsEditPromptOpen(false)
+      setEditingPrompt(null)
+    }
+  }
 
   return (
     <div className={`flex flex-col h-full ${className}`}>
@@ -135,7 +152,7 @@ export function PromptLibrary({ onSelectPrompt, showQuickAccess = true, classNam
             <Button variant="ghost" onClick={() => setIsAddPromptOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddPrompt} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleAddPromptClick} className="bg-blue-600 hover:bg-blue-700">
               Add Prompt
             </Button>
           </DialogFooter>
@@ -202,7 +219,7 @@ export function PromptLibrary({ onSelectPrompt, showQuickAccess = true, classNam
             <Button variant="ghost" onClick={() => setIsEditPromptOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdatePrompt} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleUpdatePromptClick} className="bg-blue-600 hover:bg-blue-700">
               Save Changes
             </Button>
           </DialogFooter>

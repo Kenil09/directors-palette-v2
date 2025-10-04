@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Replicate from 'replicate';
+import { ReplicatePrediction, WebhookService } from '@/features/generation/services/webhook.service';
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
@@ -20,6 +21,15 @@ export async function GET(
     }
 
     const prediction = await replicate.predictions.get(id);
+
+    // If prediction succeeded and has output, process it (download and save to Supabase)
+    if (prediction.status === 'succeeded' && prediction.output) {
+      try {
+        await WebhookService.processCompletedPrediction(prediction as unknown as ReplicatePrediction);
+      } catch (processError) {
+        console.error('Error processing prediction:', processError);
+      }
+    }
 
     return NextResponse.json({
       id: prediction.id,

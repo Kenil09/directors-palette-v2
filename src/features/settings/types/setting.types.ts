@@ -18,6 +18,7 @@ export interface Prompt {
 export interface PromptLibrarySettings {
     categories: promptCategories[]
     prompts: Prompt[]
+    quickPrompts?: Prompt[] // Optional for backward compatibility
 }
 export interface ShotCreatorSettings {
     id?: string

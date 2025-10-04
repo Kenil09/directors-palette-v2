@@ -5,21 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Zap, Calendar, Link } from 'lucide-react'
 import { format } from 'date-fns'
 import { ImageCard } from "./ImageCard"
-
-export interface GalleryImage {
-  url: string
-  prompt: string
-  timestamp: number
-  model?: string
-  creditsUsed?: number
-  source?: string
-  reference?: string
-  chain?: {
-    chainId: string
-    stepNumber: number
-    stepPrompt: string
-  }
-}
+import type { GalleryImage } from '../../types'
 
 export interface ImageChain {
   chainId: string

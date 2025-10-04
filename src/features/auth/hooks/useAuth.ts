@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AuthService } from '../services/auth.service';
 import type { AuthState, SignInCredentials } from '../types/auth.types';
 
@@ -11,6 +11,7 @@ export function useAuth() {
     isLoading: true,
     error: null,
   });
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
 
   useEffect(() => {
     // Check for existing session on mount
@@ -28,16 +29,24 @@ export function useAuth() {
     initAuth();
 
     // Listen for auth state changes
-    const subscription = AuthService.onAuthStateChange((user) => {
-      setAuthState((prev) => ({
-        ...prev,
-        user,
-        isLoading: false,
-      }));
-    });
+    const setupSubscription = async () => {
+      const subscription = await AuthService.onAuthStateChange((user) => {
+        setAuthState((prev) => ({
+          ...prev,
+          user,
+          isLoading: false,
+        }));
+      });
+
+      subscriptionRef.current = subscription;
+    };
+
+    setupSubscription();
 
     return () => {
-      subscription.unsubscribe();
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
     };
   }, []);
 

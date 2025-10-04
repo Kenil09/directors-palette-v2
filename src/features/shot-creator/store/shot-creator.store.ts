@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import { ShotCreatorGeneration, ShotCreatorReferenceImage } from "../types";
 import { ImageData } from "../../shot-animator/types";
 import { toast } from "@/hooks/use-toast";
@@ -33,9 +32,7 @@ export interface ShotCreatorStore {
     onSendToWorkspace: (imageUrl: string) => Promise<void>;
 }
 
-export const useShotCreatorStore = create<ShotCreatorStore>()(
-    persist(
-        (set) => ({
+export const useShotCreatorStore = create<ShotCreatorStore>()((set) => ({
             shotCreatorReferenceImages: [],
             shotCreatorPrompt: "",
             shotCreatorGenerations: [],
@@ -62,7 +59,7 @@ export const useShotCreatorStore = create<ShotCreatorStore>()(
                 }),
 
             onSendToReferenceLibrary: (imageUrl: string, setActiveTab: (tab: string) => void) => {
-                localStorage.setItem('directors-palette-layout-input', imageUrl);
+                // TODO: Save to Supabase reference library table
                 setActiveTab('layout-annotation');
                 toast({
                     title: 'Sent to Layout & Annotation',
@@ -209,17 +206,4 @@ export const useShotCreatorStore = create<ShotCreatorStore>()(
                     });
                 }
             },
-        }),
-        {
-            name: "shot-creator-storage",
-            storage: createJSONStorage(() => localStorage),
-            partialize: (state) => ({
-                shotCreatorReferenceImages: state.shotCreatorReferenceImages,
-                shotCreatorPrompt: state.shotCreatorPrompt,
-                shotCreatorGenerations: state.shotCreatorGenerations,
-                shotCreatorProcessing: state.shotCreatorProcessing,
-                fullscreenImage: state.fullscreenImage,
-            }),
-        }
-    )
-);
+        }));

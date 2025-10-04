@@ -2,23 +2,8 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { useUnifiedGalleryStore } from '../store/unified-gallery-store'
+import type { GalleryImage } from '../types'
 import { useToast } from '@/components/ui/use-toast'
-
-// Re-export types from the store for convenience
-export interface GalleryImage {
-  url: string
-  prompt: string
-  timestamp: number
-  model?: string
-  creditsUsed?: number
-  source?: string
-  reference?: string
-  chain?: {
-    chainId: string
-    stepNumber: number
-    stepPrompt: string
-  }
-}
 
 export interface ChainData {
   chainId: string

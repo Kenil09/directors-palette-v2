@@ -1,69 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server';
+// import { createHmac, timingSafeEqual } from 'crypto';
+import { WebhookService } from '@/features/generation/services/webhook.service';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
-    const signature = request.headers.get('webhook-signature');
+    // const webhookId = request.headers.get('webhook-id');
+    // const webhookTimestamp = request.headers.get('webhook-timestamp');
+    // const webhookSignature = request.headers.get('webhook-signature');
 
-    if (!signature) {
-      return NextResponse.json(
-        { error: 'Missing webhook signature' },
-        { status: 400 }
-      );
-    }
+    // if (!webhookId || !webhookTimestamp || !webhookSignature) {
+    //   return NextResponse.json(
+    //     { error: 'Missing webhook headers' },
+    //     { status: 400 }
+    //   );
+    // }
 
-    // Verify webhook signature
-    const webhookSecret = process.env.REPLICATE_WEBHOOK_SECRET;
-    if (!webhookSecret) {
-      console.error('REPLICATE_WEBHOOK_SECRET not configured');
-      return NextResponse.json(
-        { error: 'Webhook secret not configured' },
-        { status: 500 }
-      );
-    }
+    // // Verify timestamp (prevent replay attacks - 5 min tolerance)
+    // const timestamp = parseInt(webhookTimestamp);
+    // const now = Math.floor(Date.now() / 1000);
+    // if (Math.abs(now - timestamp) > 300) {
+    //   return NextResponse.json(
+    //     { error: 'Webhook timestamp too old' },
+    //     { status: 400 }
+    //   );
+    // }
 
-    // Basic signature verification - in production, implement proper HMAC verification
-    // const crypto = require('crypto');
-    // const isValid = crypto.timingSafeEqual(
-    //   Buffer.from(signature),
-    //   Buffer.from(`sha256=${crypto.createHmac('sha256', webhookSecret).update(body).digest('hex')}`)
-    // );
-    const isValid = true; // TODO: Implement proper webhook signature verification
+    // Get webhook signing secret from Replicate
+    // const signingSecret = await WebhookService.getReplicateWebhookSecret();
 
-    if (!isValid) {
-      return NextResponse.json(
-        { error: 'Invalid webhook signature' },
-        { status: 401 }
-      );
-    }
+    // Construct signed content: webhook_id.timestamp.body
+    // const signedContent = `${webhookId}.${webhookTimestamp}.${body}`;
 
+    // Generate expected signature
+    // const expectedSignature = createHmac('sha256', signingSecret)
+    //   .update(signedContent)
+    //   .digest('base64');
+
+    // Verify signature (webhook-signature can contain multiple signatures separated by space)
+    // const signatures = webhookSignature.split(' ');
+    // const isValid = signatures.some(sig => {
+    //   try {
+    //     return timingSafeEqual(
+    //       Buffer.from(sig),
+    //       Buffer.from(expectedSignature)
+    //     );
+    //   } catch {
+    //     return false;
+    //   }
+    // });
+
+    // if (!isValid) {
+    //   return NextResponse.json(
+    //     { error: 'Invalid webhook signature' },
+    //     { status: 401 }
+    //   );
+    // }
+
+    // Parse event
     const event = JSON.parse(body);
-    const { id, status, output, error: predictionError } = event;
+    console.log(`Webhook received for prediction ${event.id}: ${event.status}`);
 
-    console.log(`Webhook received for prediction ${id}: ${status}`);
-
-    // Here you can add logic to:
-    // 1. Update prediction status in your database
-    // 2. Download and store generated assets
-    // 3. Create gallery entries
-    // 4. Send real-time updates to clients
-
-    switch (status) {
-      case 'succeeded':
-        console.log(`Prediction ${id} completed successfully:`, output);
-        // TODO: Handle successful completion
-        break;
-      case 'failed':
-        console.log(`Prediction ${id} failed:`, predictionError);
-        // TODO: Handle failure
-        break;
-      case 'canceled':
-        console.log(`Prediction ${id} was canceled`);
-        // TODO: Handle cancellation
-        break;
-      default:
-        console.log(`Prediction ${id} status updated to: ${status}`);
-    }
+    // Process the prediction
+    await WebhookService.processCompletedPrediction(event);
 
     return NextResponse.json({ received: true });
 

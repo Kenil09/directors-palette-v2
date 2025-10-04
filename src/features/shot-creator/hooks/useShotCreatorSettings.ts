@@ -3,8 +3,6 @@ import { shotCreatorSettingsService } from '../services';
 import { ShotCreatorSettings } from '../types';
 import { getClient } from "@/lib/db/client";
 
-const STORAGE_KEY = 'shot-creator-settings';
-
 const DEFAULT_SETTINGS: ShotCreatorSettings = {
   aspectRatio: "16:9",
   resolution: "2K",
@@ -15,47 +13,11 @@ const DEFAULT_SETTINGS: ShotCreatorSettings = {
 };
 
 /**
- * Check if we're running in the browser
- */
-const isBrowser = typeof window !== 'undefined';
-
-/**
- * Load settings from localStorage cache
- */
-const loadFromLocalStorage = (): ShotCreatorSettings => {
-  if (!isBrowser) return DEFAULT_SETTINGS;
-
-  try {
-    const cached = localStorage.getItem(STORAGE_KEY);
-    if (cached) {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(cached) };
-    }
-  } catch (error) {
-    console.error('Failed to load settings from localStorage:', error);
-  }
-  return DEFAULT_SETTINGS;
-};
-
-/**
- * Save settings to localStorage cache
- */
-const saveToLocalStorage = (settings: ShotCreatorSettings) => {
-  if (!isBrowser) return;
-
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  } catch (error) {
-    console.error('Failed to save settings to localStorage:', error);
-  }
-};
-
-/**
- * Custom hook for managing shot creator settings with Supabase sync
- * Settings are persisted to both Supabase and localStorage for instant load
+ * Custom hook for managing shot creator settings with Supabase
+ * Settings are persisted to Supabase only
  */
 export function useShotCreatorSettings() {
-  // Initialize from localStorage first for instant load
-  const [settings, setSettings] = useState<ShotCreatorSettings>(loadFromLocalStorage);
+  const [settings, setSettings] = useState<ShotCreatorSettings>(DEFAULT_SETTINGS);
   const [isInitialized, setIsInitialized] = useState(false);
 
   /**
@@ -80,7 +42,6 @@ export function useShotCreatorSettings() {
         if (loadedSettings) {
           const mergedSettings = { ...DEFAULT_SETTINGS, ...loadedSettings };
           setSettings(mergedSettings);
-          saveToLocalStorage(mergedSettings);
         }
       } catch (error) {
         console.error('Failed to load settings from Supabase:', error);
@@ -100,9 +61,6 @@ export function useShotCreatorSettings() {
     const supabase = await getClient()
     setSettings(prev => {
       const newSettings = { ...prev, ...partialSettings };
-
-      // Save to localStorage immediately for persistence across refreshes
-      saveToLocalStorage(newSettings);
 
       // Save to Supabase in background (don't wait)
       if (supabase) {

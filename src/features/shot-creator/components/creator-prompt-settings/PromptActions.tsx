@@ -16,9 +16,10 @@ import {
 } from 'lucide-react'
 import { useShotCreatorStore } from "@/features/shot-creator/store/shot-creator.store"
 import { useShotCreatorSettings } from "../../hooks"
+import { useImageGeneration } from "../../hooks/useImageGeneration"
 import { PromptSyntaxFeedback } from "./PromptSyntaxFeedback"
 import { PromptLibrary } from "./PromptLibrary"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback } from "react"
 import { extractAtTags, urlToFile } from "../../helpers"
 import { ShotCreatorReferenceImage } from "../../types"
 import { useUnifiedGalleryStore } from "../../store/unified-gallery-store"
@@ -32,40 +33,29 @@ const PromptActions = ({ textareaRef }: { textareaRef: React.RefObject<HTMLTextA
         setShotCreatorReferenceImages,
     } = useShotCreatorStore()
     const { settings: shotCreatorSettings } = useShotCreatorSettings()
-    const [cursorPosition, setCursorPosition] = useState(0)
-    console.log("cursorPosition", cursorPosition)
-    const [cooldownSeconds, setCooldownSeconds] = useState(0)
+    const { generateImage, isGenerating } = useImageGeneration()
 
     const isEditingMode = shotCreatorSettings.model === 'qwen-image-edit'
     const canGenerate = isEditingMode
         ? shotCreatorPrompt.length > 0 && shotCreatorReferenceImages.length > 0
         : shotCreatorPrompt.length > 0 && shotCreatorReferenceImages.length > 0
 
-    // Handle cooldown timer
-    useEffect(() => {
-        if (cooldownSeconds > 0) {
-            const timer = setTimeout(() => {
-                setCooldownSeconds(cooldownSeconds - 1)
-            }, 1000)
-            return () => clearTimeout(timer)
-        }
-    }, [cooldownSeconds])
+    // Handle generation
+    const handleGenerate = useCallback(async () => {
+        if (canGenerate && !isGenerating) {
+            // Extract reference image URLs
+            const referenceUrls = shotCreatorReferenceImages
+                .map(ref => ref.url || ref.preview)
+                .filter((url): url is string => Boolean(url))
 
-    // Reset cooldown when processing finishes
-    useEffect(() => {
-        if (!shotCreatorProcessing && cooldownSeconds > 0) {
-            // If processing finished but cooldown is still active, clear it
-            setCooldownSeconds(0)
+            // Call the generation API
+            await generateImage(
+                shotCreatorPrompt,
+                referenceUrls,
+                'jpg'
+            )
         }
-    }, [shotCreatorProcessing, cooldownSeconds])
-
-    // Handle generation with cooldown
-    const handleGenerate = useCallback(() => {
-        if (canGenerate && cooldownSeconds === 0) {
-            // onGenerate() //TODO :: implement
-            setCooldownSeconds(3) // Start 3-second cooldown
-        }
-    }, [canGenerate, cooldownSeconds])
+    }, [canGenerate, isGenerating, shotCreatorPrompt, shotCreatorReferenceImages, generateImage])
 
     // Handle selecting prompt from library
     const handleSelectPrompt = useCallback((prompt: string) => {
@@ -166,15 +156,11 @@ const PromptActions = ({ textareaRef }: { textareaRef: React.RefObject<HTMLTextA
                     }
                     className="min-h-[100px] bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 resize-none"
                     maxLength={1000}
-                    onSelect={(e) => {
-                        const target = e.target as HTMLTextAreaElement
-                        setCursorPosition(target.selectionStart)
-                    }}
                     onKeyDown={(e) => {
                         // Ctrl+Enter or Cmd+Enter to generate
-                        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canGenerate && cooldownSeconds === 0 && !shotCreatorProcessing) {
+                        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canGenerate && !shotCreatorProcessing && !isGenerating) {
                             e.preventDefault()
-                            handleGenerate()
+                            void handleGenerate()
                         }
                     }}
                 />
@@ -196,15 +182,10 @@ const PromptActions = ({ textareaRef }: { textareaRef: React.RefObject<HTMLTextA
                 {/* Generate Button */}
                 <Button
                     onClick={handleGenerate}
-                    disabled={!canGenerate || cooldownSeconds > 0 || shotCreatorProcessing}
+                    disabled={!canGenerate || isGenerating}
                     className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium disabled:opacity-50"
                 >
-                    {cooldownSeconds > 0 ? (
-                        <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                            Cooldown ({cooldownSeconds}s)
-                        </>
-                    ) : shotCreatorProcessing ? (
+                    {isGenerating ? (
                         <>
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                             Generating...

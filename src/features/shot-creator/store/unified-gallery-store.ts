@@ -1,21 +1,6 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-
-// Re-export GalleryImage for convenience
-export interface GalleryImage {
-  url: string
-  prompt: string
-  timestamp: number
-  model?: string
-  creditsUsed?: number
-  source?: string
-  reference?: string
-  chain?: {
-    chainId: string
-    stepNumber: number
-    stepPrompt: string
-  }
-}
+import type { GalleryImage } from '../types'
+import { GalleryService } from '../services/gallery.service'
 
 export interface GeneratedImage {
   id: string
@@ -80,6 +65,7 @@ interface UnifiedGalleryState {
     fileSize?: number
     error?: string
   }) => void
+  loadImages: (images: GeneratedImage[]) => void
   removeImage: (imageIdOrUrl: string) => void
   setSelectedImage: (imageId: string | null) => void
   setFullscreenImage: (image: GeneratedImage | null) => void
@@ -105,13 +91,11 @@ interface UnifiedGalleryState {
   getTotalCreditsUsed: () => number
 }
 
-export const useUnifiedGalleryStore = create<UnifiedGalleryState>()(
-  persist(
-    (set, get) => ({
-      images: [],
-      recentImages: [],
-      selectedImage: null,
-      fullscreenImage: null,
+export const useUnifiedGalleryStore = create<UnifiedGalleryState>()((set, get) => ({
+  images: [],
+  recentImages: [],
+  selectedImage: null,
+  fullscreenImage: null,
 
       addImage: (imageData) => {
         const newImage: GeneratedImage = {
@@ -153,7 +137,29 @@ export const useUnifiedGalleryStore = create<UnifiedGalleryState>()(
         }
       },
 
-      removeImage: (imageIdOrUrl) => {
+      loadImages: (images) => {
+        set({
+          images: images,
+          recentImages: images.slice(0, 10)
+        })
+      },
+
+      removeImage: async (imageIdOrUrl) => {
+        // Find the image to get its ID
+        const state = useUnifiedGalleryStore.getState()
+        const image = state.images.find(img => img.id === imageIdOrUrl || img.url === imageIdOrUrl)
+
+        if (image) {
+          // Delete from Supabase (database and storage)
+          const result = await GalleryService.deleteImage(image.id)
+
+          if (!result.success) {
+            console.error('Failed to delete image:', result.error)
+            return
+          }
+        }
+
+        // Remove from store
         set((state) => ({
           images: state.images.filter(img =>
             img.id !== imageIdOrUrl && img.url !== imageIdOrUrl
@@ -278,10 +284,4 @@ export const useUnifiedGalleryStore = create<UnifiedGalleryState>()(
       getTotalCreditsUsed: () => {
         return get().images.reduce((total, img) => total + img.metadata.creditsUsed, 0)
       }
-    }),
-    {
-      name: 'unified-gallery-storage',
-      version: 1
-    }
-  )
-)
+}))

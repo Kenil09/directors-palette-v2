@@ -1,3 +1,9 @@
+/**
+ * Shot Creator Helpers
+ */
+
+export * from './prompt-syntax-feedback'
+
 export function extractAtTags(text: string): string[] {
     const matches = text.match(/@\w+/g);
     return matches || [];

@@ -17,6 +17,7 @@ import { GeneratedImage } from '../../store/unified-gallery-store'
 export interface UnifiedImageGalleryProps {
     currentTab?: 'shot-creator' | 'shot-animator' | 'layout-annotation'
     mode?: 'minimal' | 'full'
+    isLoading?: boolean
     onSendToTab?: (imageUrl: string, targetTab: string) => void
     onUseAsReference?: (imageUrl: string) => void
     onSendToLibrary?: (imageUrl: string) => void
@@ -29,6 +30,7 @@ export interface UnifiedImageGalleryProps {
 export function UnifiedImageGallery({
     currentTab,
     mode = 'full',
+    isLoading = false,
     onSendToTab,
     onUseAsReference,
     onSendToShotAnimator,
@@ -40,24 +42,24 @@ export function UnifiedImageGallery({
     const {
         images,
         paginatedImages,
-        chains,
         totalPages,
-        selectedImages,
         filters,
         fullscreenImage,
         totalImages,
         totalCredits,
-        handleImageSelect,
-        handleClearSelection,
-        handleDeleteSelected,
         handleCopyImage,
         handleDownloadImage,
         handleDeleteImage,
         handleSendTo,
         handleSearchChange,
-        handleViewModeChange,
         handlePageChange,
         setFullscreenImage,
+        selectedImages,
+        handleViewModeChange,
+        handleClearSelection,
+        handleDeleteSelected,
+        handleImageSelect,
+        chains,
         updateImageReference
     } = useGalleryLogic(onSendToTab, onUseAsReference, onSendToShotAnimator, onSendToLayoutAnnotation, onSendToLibrary, onImageSelect)
 
@@ -119,8 +121,8 @@ export function UnifiedImageGallery({
                         <ImageCard
                             key={image.id}
                             image={image}
-                            isSelected={selectedImages.includes(image.url)}
-                            onSelect={() => handleImageSelect(image.url)}
+                            isSelected={false}
+                            onSelect={() => onImageSelect?.(image.url)}
                             onZoom={() => setFullscreenImage(image)}
                             onCopy={() => handleCopyImage(image.url)}
                             onDownload={() => handleDownloadImage(image.url)}
@@ -147,16 +149,21 @@ export function UnifiedImageGallery({
                 totalImages={totalImages}
                 totalCredits={totalCredits}
                 searchQuery={filters.searchQuery}
+                onSearchChange={handleSearchChange}
                 viewMode={filters.viewMode}
                 selectedCount={selectedImages.length}
-                onSearchChange={handleSearchChange}
                 onViewModeChange={handleViewModeChange}
                 onClearSelection={handleClearSelection}
                 onDeleteSelected={handleDeleteSelected}
             />
 
             <CardContent>
-                {images.length === 0 ? (
+                {isLoading ? (
+                    <div className="text-center py-12">
+                        <div className="w-12 h-12 mx-auto mb-4 border-4 border-slate-600 border-t-purple-500 rounded-full animate-spin" />
+                        <p className="text-slate-400">Loading gallery...</p>
+                    </div>
+                ) : images.length === 0 ? (
                     <div className="text-center py-12">
                         <ImageIcon className="w-12 h-12 mx-auto mb-4 text-slate-600" />
                         <p className="text-slate-400">No images generated yet</p>

@@ -1,5 +1,6 @@
 import { getClient } from "@/lib/db/client";
 import type { SignInCredentials, AuthError, AuthUser, AuthSession } from '../types/auth.types';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 export class AuthService {
   private static supabasePromise = getClient(); // lazy init
@@ -125,10 +126,10 @@ export class AuthService {
   /**
    * Listen to auth state changes
    */
-  static async onAuthStateChange(callback: (user: AuthUser | null) => void) {
+  static async onAuthStateChange(callback: (user: AuthUser | null) => void): Promise<{ unsubscribe: () => void }> {
     const supabase = await this.supabase();
     const { data: { subscription } } = await supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (_event: AuthChangeEvent, session: Session | null) => {
         callback(session?.user ?? null);
       }
     );

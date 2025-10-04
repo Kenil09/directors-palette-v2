@@ -1,20 +1,20 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useToast } from '@/components/ui/use-toast'
 import { SavedPrompt, usePromptLibraryStore } from "../store/prompt-library-store"
 import { getClient } from "@/lib/db/client"
 
+export interface NewPromptData {
+    title: string
+    prompt: string
+    categoryId: string
+    tags: string
+    isQuickAccess: boolean
+}
+
 export function usePromptLibraryManager(onSelectPrompt?: (prompt: string) => void) {
     const { toast } = useToast()
-    const [editingPrompt, setEditingPrompt] = useState<SavedPrompt | null>(null)
-    const [newPrompt, setNewPrompt] = useState({
-        title: '',
-        prompt: '',
-        categoryId: 'custom',
-        tags: '',
-        isQuickAccess: false
-    })
 
     const {
         prompts,
@@ -30,7 +30,6 @@ export function usePromptLibraryManager(onSelectPrompt?: (prompt: string) => voi
         setSearchQuery,
         setSelectedCategory,
         loadUserPrompts,
-        getFilteredPrompts,
         getPromptsByCategory
     } = usePromptLibraryStore()
 
@@ -57,45 +56,77 @@ export function usePromptLibraryManager(onSelectPrompt?: (prompt: string) => voi
         loadPrompts()
     }, [loadUserPrompts])
 
-    const filteredPrompts = useMemo(() => getFilteredPrompts(), [getFilteredPrompts])
+    // Filter prompts based on search query and category
+    const filteredPrompts = useMemo(() => {
+        let filtered = prompts
+
+        // Filter by category
+        if (selectedCategory) {
+            filtered = filtered.filter(p => p.categoryId === selectedCategory)
+        }
+
+        // Filter by search query
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase()
+            filtered = filtered.filter(p =>
+                p.title.toLowerCase().includes(query) ||
+                p.prompt.toLowerCase().includes(query) ||
+                p.tags.some(tag => tag.toLowerCase().includes(query)) ||
+                p.reference?.toLowerCase().includes(query)
+            )
+        }
+
+        return filtered
+    }, [prompts, searchQuery, selectedCategory])
+
     const categoryPrompts = useMemo(() =>
         selectedCategory ? getPromptsByCategory(selectedCategory) : [],
         [selectedCategory, getPromptsByCategory]
     )
 
-    // Add prompt
-    const handleAddPrompt = async () => {
-        if (!newPrompt.title || !newPrompt.prompt) {
+    // Add prompt - takes prompt data as parameter
+    const handleAddPrompt = async (promptData: NewPromptData) => {
+        if (!promptData.title || !promptData.prompt) {
             toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' })
-            return
+            return false
         }
 
-        await addPrompt({
-            title: newPrompt.title,
-            prompt: newPrompt.prompt,
-            categoryId: newPrompt.categoryId,
-            tags: newPrompt.tags.split(',').map(t => t.trim()).filter(t => t),
-            isQuickAccess: newPrompt.isQuickAccess,
-            reference: `@prompt_${Date.now()}`, // Add reference for @ tag access
-            metadata: {
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            },
-            id: `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` // Generate ID here too
-        })
+        try {
+            await addPrompt({
+                title: promptData.title,
+                prompt: promptData.prompt,
+                categoryId: promptData.categoryId,
+                tags: promptData.tags.split(',').map(t => t.trim()).filter(t => t),
+                isQuickAccess: promptData.isQuickAccess,
+                reference: `@${promptData.title.toLowerCase().replace(/\s+/g, '_')}`,
+                metadata: {
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }
+            })
 
-        toast({ title: 'Success', description: 'Prompt added to library' })
-
-        setNewPrompt({ title: '', prompt: '', categoryId: 'custom', tags: '', isQuickAccess: false })
+            toast({ title: 'Success', description: 'Prompt added to library' })
+            return true
+        } catch (error) {
+            console.error('Failed to add prompt:', error)
+            toast({ title: 'Error', description: 'Failed to add prompt', variant: 'destructive' })
+            return false
+        }
     }
 
     // Update prompt
-    const handleUpdatePrompt = async () => {
-        if (!editingPrompt) return
+    const handleUpdatePrompt = async (promptToUpdate: SavedPrompt) => {
+        if (!promptToUpdate) return false
 
-        await updatePrompt(editingPrompt.id, editingPrompt)
-        toast({ title: 'Success', description: 'Prompt updated successfully' })
-        setEditingPrompt(null)
+        try {
+            await updatePrompt(promptToUpdate.id, promptToUpdate)
+            toast({ title: 'Success', description: 'Prompt updated successfully' })
+            return true
+        } catch (error) {
+            console.error('Failed to update prompt:', error)
+            toast({ title: 'Error', description: 'Failed to update prompt', variant: 'destructive' })
+            return false
+        }
     }
 
     // Copy prompt
@@ -206,8 +237,16 @@ export function usePromptLibraryManager(onSelectPrompt?: (prompt: string) => voi
             }
 
             let importedCount = 0
+            let skippedCount = 0
+
             for (const p of data.prompts) {
-                if (!prompts.find(existing => existing.title === p.title && existing.categoryId === p.categoryId)) {
+                // Check for duplicates before attempting to add
+                if (prompts.find(existing => existing.title === p.title && existing.categoryId === p.categoryId)) {
+                    skippedCount++
+                    continue
+                }
+
+                try {
                     await addPrompt({
                         title: p.title,
                         prompt: p.prompt,
@@ -216,16 +255,25 @@ export function usePromptLibraryManager(onSelectPrompt?: (prompt: string) => voi
                         reference: p.reference,
                         isQuickAccess: p.isQuickAccess || false,
                         metadata: {
-                            createdAt: new Date().toISOString(),
+                            createdAt: p.metadata?.createdAt || new Date().toISOString(),
                             updatedAt: new Date().toISOString()
-                        },
-                        id: `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+                        }
                     })
                     importedCount++
+                } catch (error) {
+                    console.warn(`Failed to import prompt "${p.title}":`, error)
+                    skippedCount++
                 }
             }
 
-            toast({ title: 'Import Successful', description: `Imported ${importedCount} new prompts` })
+            const message = skippedCount > 0
+                ? `Imported ${importedCount} prompts, skipped ${skippedCount} duplicates`
+                : `Imported ${importedCount} new prompts`
+
+            toast({
+                title: 'Import Successful',
+                description: message
+            })
             event.target.value = ''
         } catch (error) {
             toast({ title: 'Import Failed', description: error instanceof Error ? error.message : 'Failed to import prompts', variant: 'destructive' })
@@ -241,10 +289,6 @@ export function usePromptLibraryManager(onSelectPrompt?: (prompt: string) => voi
         selectedCategory,
         filteredPrompts,
         categoryPrompts,
-        editingPrompt,
-        setEditingPrompt,
-        newPrompt,
-        setNewPrompt,
         handleAddPrompt,
         handleUpdatePrompt,
         handleCopyPrompt,

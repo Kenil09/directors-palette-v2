@@ -1,5 +1,5 @@
 import { SettingsConfig } from "@/features/settings/types/setting.types"
-import { DEFAULT_CATEGORIES } from "@/features/shot-creator/store/prompt-library-store"
+import { DEFAULT_CATEGORIES } from "@/features/shot-creator"
 
 export const defaultSettings: SettingsConfig = {
     shotAnimator: {
@@ -14,7 +14,8 @@ export const defaultSettings: SettingsConfig = {
         sequentialGeneration: false,
         promptLibrary: {
             categories: DEFAULT_CATEGORIES,
-            prompts: []
+            prompts: [],
+            quickPrompts: []
         }
     },
 }

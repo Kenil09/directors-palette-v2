@@ -23,7 +23,7 @@ import {
   Sparkles
 } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
-import { GalleryImage } from "@/features/shot-creator/components/unified-gallery/ChainView"
+import type { GalleryImage } from "../../types"
 import { useGalleryLogic } from "@/features/shot-creator/hooks/useGalleryLogic"
 import Image from "next/image"
 
@@ -90,15 +90,14 @@ export function ImageCard({
     }
   }
 
-
   return (
     <div className="relative group rounded-lg overflow-hidden bg-slate-800 border border-slate-700 transition-all hover:border-purple-600/50">
       {/* Main image - show in native aspect ratio */}
       <Image
         src={image.url}
         alt={image.prompt?.slice(0, 50) || 'Generated image'}
-        width={250}
-        height={250}
+        width={80}
+        height={80}
         className="w-full h-auto cursor-zoom-in"
         onClick={onZoom}
       />
@@ -109,7 +108,7 @@ export function ImageCard({
       </div>
 
       {/* Reference badge if exists */}
-      {image.reference && (
+      {image.reference && image.reference.trim() !== "" && (
         <div className="absolute top-2 right-2 pointer-events-none">
           <Badge className="bg-green-600 text-white px-2 py-1 text-xs">
             <Tag className="w-3 h-3 mr-1" />

@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import { toast } from "@/components/ui/use-toast";
 import { LibraryImageReference } from "../types/shot-library.types";
 
@@ -15,9 +14,7 @@ export interface ShotLibraryStore {
     loadLibraryItems: () => Promise<void>;    
 }
 
-export const useLibraryStore = create<ShotLibraryStore>()(
-    persist(
-        (set) => ({
+export const useLibraryStore = create<ShotLibraryStore>()((set) => ({
             libraryCategory: 'all',
             libraryItems: [],
             libraryLoading: false,
@@ -43,15 +40,4 @@ export const useLibraryStore = create<ShotLibraryStore>()(
                 }
             },
 
-        }),
-        {
-            name: "shot-animator-storage",
-            storage: createJSONStorage(() => localStorage),
-            partialize: (state) => ({
-                libraryCategory: state.libraryCategory,
-                libraryItems: state.libraryItems,
-                libraryLoading: state.libraryLoading,
-            }),
-        }
-    )
-);
+        }));

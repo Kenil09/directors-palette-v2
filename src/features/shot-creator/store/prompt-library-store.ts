@@ -1,6 +1,7 @@
 import { getClient } from "@/lib/db/client"
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { DEFAULT_CATEGORIES } from "../constants"
+import { promptLibrarySettingsService } from "../services/prompt-library-settings.service"
 
 export interface PromptCategory {
   id: string
@@ -49,7 +50,7 @@ interface PromptLibraryState {
   deleteCategory: (id: string) => Promise<void>
 
   // Actions - Prompts
-  addPrompt: (prompt: Omit<SavedPrompt, 'userId' | 'usage'> & { id?: string; metadata?: Partial<SavedPrompt['metadata']> }) => Promise<void>
+  addPrompt: (prompt: Omit<SavedPrompt, 'userId' | 'usage' | 'id'> & { id?: string; metadata?: Partial<SavedPrompt['metadata']> }) => Promise<void>
   updatePrompt: (id: string, updates: Partial<SavedPrompt>) => Promise<void>
   deletePrompt: (id: string) => Promise<void>
   toggleQuickAccess: (id: string) => Promise<void>
@@ -61,7 +62,7 @@ interface PromptLibraryState {
 
   // Actions - Data Management
   loadUserPrompts: (userId: string) => Promise<void>
-  saveToSupabase: (userId: string) => Promise<void>
+  saveToSettings: (userId: string) => Promise<void>
   clearAllPrompts: () => void
   deduplicatePrompts: () => void
 
@@ -72,22 +73,7 @@ interface PromptLibraryState {
   getAllReferences: () => string[]
 }
 
-// Default categories - matching nano-banana prompts
-export const DEFAULT_CATEGORIES: PromptCategory[] = [
-  { id: 'cinematic', name: 'Cinematic Shots', icon: '🎬', color: 'blue', order: 1, isEditable: false },
-  { id: 'characters', name: 'Character Styles', icon: '👤', color: 'purple', order: 2, isEditable: false },
-  { id: 'lighting', name: 'Lighting Setups', icon: '💡', color: 'yellow', order: 3, isEditable: false },
-  { id: 'environments', name: 'Environments', icon: '🏞️', color: 'green', order: 4, isEditable: false },
-  { id: 'effects', name: 'Special Effects', icon: '✨', color: 'orange', order: 5, isEditable: false },
-  { id: 'moods', name: 'Moods & Atmosphere', icon: '🎭', color: 'indigo', order: 6, isEditable: false },
-  { id: 'camera', name: 'Camera Angles', icon: '📷', color: 'pink', order: 7, isEditable: false },
-  { id: 'styles', name: 'Art Styles', icon: '🎨', color: 'purple', order: 8, isEditable: false },
-  { id: 'custom', name: 'Custom', icon: '📁', color: 'gray', order: 99, isEditable: false }
-]
-
-export const usePromptLibraryStore = create<PromptLibraryState>()(
-  persist(
-    (set, get) => ({
+export const usePromptLibraryStore = create<PromptLibraryState>()((set, get) => ({
       prompts: [],
       categories: DEFAULT_CATEGORIES,
       quickPrompts: [],
@@ -109,7 +95,10 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
           categories: [...state.categories, newCategory]
         }))
 
-        await get().saveToSupabase(await getCurrentUserId())
+        // Save to settings in background
+        getCurrentUserId().then(userId => {
+          if (userId) get().saveToSettings(userId)
+        })
       },
 
       updateCategory: async (id, updates) => {
@@ -119,7 +108,10 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
           )
         }))
 
-        await get().saveToSupabase(await getCurrentUserId())
+        // Save to settings in background
+        getCurrentUserId().then(userId => {
+          if (userId) get().saveToSettings(userId)
+        })
       },
 
       deleteCategory: async (id) => {
@@ -134,7 +126,10 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
           )
         }))
 
-        await get().saveToSupabase(await getCurrentUserId())
+        // Save to settings in background
+        getCurrentUserId().then(userId => {
+          if (userId) get().saveToSettings(userId)
+        })
       },
 
       // Prompts
@@ -148,21 +143,21 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
         )
 
         if (existingPrompt) {
-          console.log(`Prompt already exists: ${promptData.title} (generating new ID)`)
-          return // Skip adding duplicate
+          throw new Error('A prompt with this title already exists in this category')
         }
 
         const newPrompt: SavedPrompt = {
           ...promptData,
-          id: `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: promptData.id || `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           userId,
-          reference: promptData.reference || `@prompt_${Date.now()}`,
+          reference: promptData.reference || `@${promptData.title.toLowerCase().replace(/\s+/g, '_')}`,
           usage: {
             count: 0,
             lastUsed: new Date().toISOString()
           },
           metadata: {
-            createdAt: new Date().toISOString(),
+            ...promptData.metadata,
+            createdAt: promptData.metadata?.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString()
           }
         }
@@ -180,7 +175,9 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
         })
 
         if (userId !== 'guest') {
-          await get().saveToSupabase(userId)
+          get().saveToSettings(userId).catch(error => {
+            console.error('Background save failed:', error);
+          })
         }
       },
 
@@ -207,7 +204,10 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
           }
         })
 
-        await get().saveToSupabase(await getCurrentUserId())
+        // Save to settings in background
+        getCurrentUserId().then(userId => {
+          if (userId) get().saveToSettings(userId)
+        })
       },
 
       deletePrompt: async (id) => {
@@ -216,7 +216,10 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
           quickPrompts: state.quickPrompts.filter(prompt => prompt.id !== id)
         }))
 
-        await get().saveToSupabase(await getCurrentUserId())
+        // Save to settings in background
+        getCurrentUserId().then(userId => {
+          if (userId) get().saveToSettings(userId)
+        })
       },
 
       toggleQuickAccess: async (id) => {
@@ -235,7 +238,10 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
           }
         })
 
-        await get().saveToSupabase(await getCurrentUserId())
+        // Save to settings in background
+        getCurrentUserId().then(userId => {
+          if (userId) get().saveToSettings(userId)
+        })
       },
 
       // Search & Filter
@@ -250,95 +256,29 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
         try {
           // If no Supabase or no userId, work in offline mode
           if (!supabase || !userId || userId === 'guest') {
-            console.log('Working in offline mode - no Supabase connection or guest user')
             set({ isLoading: false })
             return
           }
 
-          // Load prompts from Supabase
-          const { data: promptsData, error: promptsError } = await supabase
-            .from('user_prompts')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
+          // Load prompts from settings service
+          const settings = await promptLibrarySettingsService.loadSettings(userId)
 
-          if (promptsError) {
-            console.warn('Failed to load prompts from Supabase:', promptsError.message)
-            // Don't throw, just work offline
+          if (settings) {
+            // Merge default categories with custom ones from settings
+            const customCategories = settings.categories.filter(c => c.isEditable)
+
+            set({
+              prompts: settings.prompts,
+              quickPrompts: settings.quickPrompts,
+              categories: [
+                ...DEFAULT_CATEGORIES,
+                ...customCategories
+              ],
+              isLoading: false
+            })
+          } else {
             set({ isLoading: false })
-            return
           }
-
-          // Load custom categories
-          const { data: categoriesData, error: categoriesError } = await supabase
-            .from('user_prompt_categories')
-            .select('*')
-            .eq('user_id', userId)
-            .order('order', { ascending: true })
-
-          if (categoriesError) {
-            console.warn('Failed to load categories from Supabase:', categoriesError.message)
-            // Continue with just the prompts data
-          }
-
-          const prompts = promptsData || []
-          const quickPrompts = prompts.filter(p => p.is_quick_access)
-          const customCategories = categoriesData || []
-
-          set({
-            prompts: prompts.map(p => ({
-              id: p.id,
-              userId: p.user_id,
-              prompt: p.prompt,
-              title: p.title,
-              categoryId: p.category_id,
-              tags: p.tags || [],
-              isQuickAccess: p.is_quick_access,
-              reference: p.reference,
-              usage: {
-                count: p.usage_count || 0,
-                lastUsed: p.last_used || p.created_at
-              },
-              metadata: {
-                model: p.model,
-                source: p.source,
-                createdAt: p.created_at,
-                updatedAt: p.updated_at
-              }
-            })),
-            quickPrompts: quickPrompts.map(p => ({
-              id: p.id,
-              userId: p.user_id,
-              prompt: p.prompt,
-              title: p.title,
-              categoryId: p.category_id,
-              tags: p.tags || [],
-              isQuickAccess: p.is_quick_access,
-              reference: p.reference,
-              usage: {
-                count: p.usage_count || 0,
-                lastUsed: p.last_used || p.created_at
-              },
-              metadata: {
-                model: p.model,
-                source: p.source,
-                createdAt: p.created_at,
-                updatedAt: p.updated_at
-              }
-            })),
-            categories: [
-              ...DEFAULT_CATEGORIES,
-              ...customCategories.map(c => ({
-                id: c.id,
-                name: c.name,
-                icon: c.icon,
-                color: c.color,
-                order: c.order,
-                isEditable: true
-              }))
-            ],
-            isLoading: false
-          })
         } catch (error) {
           console.warn('Prompt Library: Working in offline mode due to:', error instanceof Error ? error.message : error)
           // Don't set error state, just work offline
@@ -346,60 +286,23 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
         }
       },
 
-      saveToSupabase: async (userId) => {
-        const supabase = await getClient()
-        // Skip saving if no Supabase or guest user
-        if (!supabase || !userId || userId === 'guest') {
-          console.log('Skipping Supabase save - offline mode or guest user')
+      saveToSettings: async (userId) => {
+        // Skip saving if no userId or guest user
+        if (!userId || userId === 'guest') {
           return
         }
+
         try {
           const state = get()
 
-          // Save prompts
-          const promptsToSave = state.prompts.map(p => ({
-            id: p.id,
-            user_id: userId,
-            prompt: p.prompt,
-            title: p.title,
-            category_id: p.categoryId,
-            tags: p.tags,
-            is_quick_access: p.isQuickAccess,
-            reference: p.reference,
-            usage_count: p.usage.count,
-            last_used: p.usage.lastUsed,
-            model: p.metadata.model,
-            source: p.metadata.source,
-            created_at: p.metadata.createdAt,
-            updated_at: p.metadata.updatedAt
-          }))
-
-          const { error: promptsError } = await supabase
-            .from('user_prompts')
-            .upsert(promptsToSave, { onConflict: 'id' })
-
-          if (promptsError) throw promptsError
-
-          // Save custom categories
-          const customCategories = state.categories.filter(c => c.isEditable)
-          if (customCategories.length > 0) {
-            const categoriesToSave = customCategories.map(c => ({
-              id: c.id,
-              user_id: userId,
-              name: c.name,
-              icon: c.icon,
-              color: c.color,
-              order: c.order
-            }))
-
-            const { error: categoriesError } = await supabase
-              .from('user_prompt_categories')
-              .upsert(categoriesToSave, { onConflict: 'id' })
-
-            if (categoriesError) throw categoriesError
-          }
+          // Save to settings service
+          await promptLibrarySettingsService.saveSettings(userId, {
+            prompts: state.prompts,
+            categories: state.categories,
+            quickPrompts: state.quickPrompts
+          })
         } catch (error) {
-          console.warn('Failed to save to Supabase (will retry later):', error instanceof Error ? error.message : error)
+          console.warn('Failed to save to settings (will retry later):', error instanceof Error ? error.message : error)
           // Don't throw - just log and continue
         }
       },
@@ -412,10 +315,6 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
           selectedCategory: null,
           selectedPrompt: null
         })
-
-        // Clear localStorage
-        localStorage.removeItem('prompt-library-storage')
-        console.log('All prompts cleared from storage')
       },
 
       deduplicatePrompts: () => {
@@ -432,8 +331,6 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
 
           // Regenerate quick prompts from deduplicated prompts
           const quickPrompts = deduplicatedPrompts.filter(p => p.isQuickAccess)
-
-          console.log(`Deduplication: ${state.prompts.length} -> ${deduplicatedPrompts.length} prompts`)
 
           return {
             prompts: deduplicatedPrompts,
@@ -479,22 +376,18 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
           .map(p => p.reference)
           .filter((ref): ref is string => ref !== undefined)
       }
-    }),
-    {
-      name: 'prompt-library-storage',
-      partialize: (state) => ({
-        prompts: state.prompts,
-        categories: state.categories,
-        quickPrompts: state.quickPrompts
-      })
-    }
-  )
-)
+    }))
 
-// Helper to get current user ID
+// Helper to get current user ID (SSR-safe)
 async function getCurrentUserId(): Promise<string> {
+  if (typeof window === 'undefined') return '' // SSR check
   const supabase = await getClient()
   if (!supabase) return ''
-  const { data: { user } } = await supabase.auth.getUser()
-  return user?.id || ''
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    return user?.id || ''
+  } catch (error) {
+    console.error('Failed to get user ID:', error)
+    return ''
+  }
 }

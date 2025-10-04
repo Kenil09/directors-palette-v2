@@ -253,32 +253,41 @@ export function TablePromptLibrary({ onSelectPrompt, showQuickAccess = true, cla
       return
     }
 
-    await addPrompt({
-      title: newPrompt.title,
-      prompt: newPrompt.prompt,
-      categoryId: newPrompt.categoryId,
-      tags: newPrompt.tags.split(',').map(t => t.trim()).filter(t => t),
-      isQuickAccess: newPrompt.isQuickAccess,
-      metadata: {
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      id: `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    })
+    try {
+      await addPrompt({
+        title: newPrompt.title,
+        prompt: newPrompt.prompt,
+        categoryId: newPrompt.categoryId,
+        tags: newPrompt.tags.split(',').map(t => t.trim()).filter(t => t),
+        isQuickAccess: newPrompt.isQuickAccess,
+        reference: `@${newPrompt.title.toLowerCase().replace(/\s+/g, '_')}`,
+        metadata: {
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      })
 
-    toast({
-      title: 'Success',
-      description: 'Prompt added to library'
-    })
+      toast({
+        title: 'Success',
+        description: 'Prompt added to library'
+      })
 
-    setIsAddPromptOpen(false)
-    setNewPrompt({
-      title: '',
-      prompt: '',
-      categoryId: 'custom',
-      tags: '',
-      isQuickAccess: false
-    })
+      setIsAddPromptOpen(false)
+      setNewPrompt({
+        title: '',
+        prompt: '',
+        categoryId: 'custom',
+        tags: '',
+        isQuickAccess: false
+      })
+    } catch (error) {
+      console.error('Failed to add prompt:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to add prompt',
+        variant: 'destructive'
+      })
+    }
   }
 
   // Handle copy prompt with @ replacement

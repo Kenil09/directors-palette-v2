@@ -25,9 +25,17 @@ export class ShotCreatorSettingsService {
       }
 
       const config = result.data.config as Record<string, unknown>;
-      const shotCreatorConfig = config[this.SETTINGS_KEY] as ShotCreatorSettings | undefined;
+      const shotCreatorConfig = config[this.SETTINGS_KEY] as Partial<ShotCreatorSettings> | undefined;
 
-      return shotCreatorConfig || null;
+      if (!shotCreatorConfig) {
+        return null;
+      }
+
+      // Merge with defaults for backward compatibility
+      return {
+        ...this.getDefaultSettings(),
+        ...shotCreatorConfig
+      };
     } catch (error) {
       console.error('Failed to load shot creator settings:', error);
       return null;

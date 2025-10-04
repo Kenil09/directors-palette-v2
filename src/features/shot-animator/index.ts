@@ -1,6 +1,14 @@
 /**
- * Shot Animator Components
+ * Shot Animator Feature
+ *
+ * Main entry point for shot animator feature exports
  */
 
-// Main components
-export { default as ShotAnimator } from './components/ShotAnimator'
+// Components
+export * from './components'
+
+// Stores (currently none active)
+// export * from './store'
+
+// Types
+export * from './types'
