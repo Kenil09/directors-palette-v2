@@ -128,4 +128,59 @@ export class GalleryRepository {
       };
     }
   }
+
+  async findByPredictionId(predictionId: string): Promise<RepositoryResult<GalleryRow>> {
+    try {
+      const { data: gallery, error } = await this.client
+        .from('gallery')
+        .select('*')
+        .eq('prediction_id', predictionId)
+        .single();
+
+      if (error) {
+        return {
+          data: null,
+          error: DatabaseErrorHandler.handle(error).message,
+        };
+      }
+
+      return {
+        data: gallery,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: DatabaseErrorHandler.handle(error).message,
+      };
+    }
+  }
+
+  async updateByPredictionId(predictionId: string, data: GalleryUpdate): Promise<RepositoryResult<GalleryRow>> {
+    try {
+      const { data: gallery, error } = await this.client
+        .from('gallery')
+        .update(data)
+        .eq('prediction_id', predictionId)
+        .select()
+        .single();
+
+      if (error) {
+        return {
+          data: null,
+          error: DatabaseErrorHandler.handle(error).message,
+        };
+      }
+
+      return {
+        data: gallery,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: DatabaseErrorHandler.handle(error).message,
+      };
+    }
+  }
 }

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Replicate from 'replicate';
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types';
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
 });
 
-const supabase = createClient(
+const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
       duration = 5,
       resolution = '720p',
       aspectRatio,
-      user_id
+      user_id,
     } = await request.json();
 
     if (!prompt) {
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Prepare input for Replicate
     const input: Record<string, string | number> = {
       prompt,
       duration,
@@ -50,16 +52,30 @@ export async function POST(request: NextRequest) {
       input.aspect_ratio = aspectRatio;
     }
 
-    // Create gallery entry first
+    // Create Replicate prediction with webhook
+    const webhookUrl = `${process.env.WEBHOOK_URL}/api/webhooks/replicate`;
+    const prediction = await replicate.predictions.create({
+      model: 'bytedance/seedance-1-lite',
+      input,
+      webhook: webhookUrl,
+      webhook_events_filter: ['completed'],
+    });
+
+    // Create gallery entry with proper schema
     const { data: gallery, error: galleryError } = await supabase
       .from('gallery')
       .insert({
         user_id,
-        prediction_id: '', // Will update after Replicate call
-        status: 'pending',
+        prediction_id: prediction.id,
         generation_type: 'video',
-        replicate_input: input,
-        metadata: {}
+        status: 'pending',
+        metadata: {
+          prompt,
+          model: 'bytedance/seedance-1-lite',
+          duration,
+          resolution,
+          aspect_ratio: aspectRatio,
+        },
       })
       .select()
       .single();
@@ -70,25 +86,6 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create gallery entry' },
         { status: 500 }
       );
-    }
-
-    // Create Replicate prediction with webhook
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/replicate`;
-    const prediction = await replicate.predictions.create({
-      model: 'bytedance/seedance-1-lite',
-      input,
-      webhook: webhookUrl,
-      webhook_events_filter: ['completed']
-    });
-
-    // Update gallery with prediction_id
-    const { error: updateError } = await supabase
-      .from('gallery')
-      .update({ prediction_id: prediction.id })
-      .eq('id', gallery.id);
-
-    if (updateError) {
-      console.error('Gallery update error:', updateError);
     }
 
     return NextResponse.json({

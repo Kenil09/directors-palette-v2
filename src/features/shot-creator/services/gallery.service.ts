@@ -76,8 +76,8 @@ export class GalleryService {
                     persistence: {
                         isPermanent: true,
                         temporaryUrl: metadata.replicate_url,
-                        storagePath: item.storage_path,
-                        fileSize: item.file_size,
+                        storagePath: item.storage_path || undefined,
+                        fileSize: item.file_size || undefined,
                         downloadedAt: item.created_at,
                     },
                 }

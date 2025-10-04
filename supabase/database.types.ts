@@ -16,38 +16,47 @@ export type Database = {
     Tables: {
       gallery: {
         Row: {
-          prediction_id: string
           created_at: string
-          file_size: number
+          error_message: string | null
+          file_size: number | null
+          generation_type: Database["public"]["Enums"]["generation_type"]
           id: string
           metadata: Json | null
-          mime_type: string
-          public_url: string
-          storage_path: string
+          mime_type: string | null
+          prediction_id: string
+          public_url: string | null
+          status: Database["public"]["Enums"]["status"]
+          storage_path: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          prediction_id: string
           created_at?: string
-          file_size?: number
+          error_message?: string | null
+          file_size?: number | null
+          generation_type?: Database["public"]["Enums"]["generation_type"]
           id?: string
           metadata?: Json | null
-          mime_type?: string
-          public_url?: string
-          storage_path?: string
+          mime_type?: string | null
+          prediction_id: string
+          public_url?: string | null
+          status?: Database["public"]["Enums"]["status"]
+          storage_path?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          prediction_id?: string
           created_at?: string
-          file_size?: number
+          error_message?: string | null
+          file_size?: number | null
+          generation_type?: Database["public"]["Enums"]["generation_type"]
           id?: string
           metadata?: Json | null
-          mime_type?: string
-          public_url?: string
-          storage_path?: string
+          mime_type?: string | null
+          prediction_id?: string
+          public_url?: string | null
+          status?: Database["public"]["Enums"]["status"]
+          storage_path?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -211,7 +220,8 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      generation_type: "image" | "video"
+      status: "pending" | "processing" | "completed" | "failed" | "canceled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -338,6 +348,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      generation_type: ["image", "video"],
+      status: ["pending", "processing", "completed", "failed", "canceled"],
+    },
   },
 } as const

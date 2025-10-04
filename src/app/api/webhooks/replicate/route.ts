@@ -1,69 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
-// import { createHmac, timingSafeEqual } from 'crypto';
+import { WebhookVerificationService } from '@/features/generation/services/webhook-verification.service';
 import { WebhookService } from '@/features/generation/services/webhook.service';
 
 export async function POST(request: NextRequest) {
   try {
+    // 1. Get raw body and headers
     const body = await request.text();
-    // const webhookId = request.headers.get('webhook-id');
-    // const webhookTimestamp = request.headers.get('webhook-timestamp');
-    // const webhookSignature = request.headers.get('webhook-signature');
+    const webhookId = request.headers.get('webhook-id');
+    const webhookTimestamp = request.headers.get('webhook-timestamp');
+    const webhookSignature = request.headers.get('webhook-signature');
 
-    // if (!webhookId || !webhookTimestamp || !webhookSignature) {
-    //   return NextResponse.json(
-    //     { error: 'Missing webhook headers' },
-    //     { status: 400 }
-    //   );
-    // }
+    // 2. Validate required headers exist
+    if (!webhookId || !webhookTimestamp || !webhookSignature) {
+      console.error('Missing webhook headers');
+      return NextResponse.json(
+        { error: 'Missing webhook headers' },
+        { status: 400 }
+      );
+    }
 
-    // // Verify timestamp (prevent replay attacks - 5 min tolerance)
-    // const timestamp = parseInt(webhookTimestamp);
-    // const now = Math.floor(Date.now() / 1000);
-    // if (Math.abs(now - timestamp) > 300) {
-    //   return NextResponse.json(
-    //     { error: 'Webhook timestamp too old' },
-    //     { status: 400 }
-    //   );
-    // }
+    // 3. Validate timestamp (prevent replay attacks - 5 min tolerance)
+    if (!WebhookVerificationService.isTimestampValid(webhookTimestamp)) {
+      console.error('Webhook timestamp too old');
+      return NextResponse.json(
+        { error: 'Webhook timestamp too old' },
+        { status: 400 }
+      );
+    }
 
-    // Get webhook signing secret from Replicate
-    // const signingSecret = await WebhookService.getReplicateWebhookSecret();
+    // 4. Get signing secret from Replicate (cached)
+    let signingSecret: string;
+    try {
+      signingSecret = await WebhookVerificationService.getSigningSecret();
+    } catch (error) {
+      console.error('Failed to get signing secret:', error);
+      return NextResponse.json(
+        { error: 'Failed to get webhook secret' },
+        { status: 500 }
+      );
+    }
 
-    // Construct signed content: webhook_id.timestamp.body
-    // const signedContent = `${webhookId}.${webhookTimestamp}.${body}`;
+    // 5. Verify signature using HMAC-SHA256
+    const isValid = WebhookVerificationService.verifySignature(
+      webhookId,
+      webhookTimestamp,
+      body,
+      webhookSignature,
+      signingSecret
+    );
 
-    // Generate expected signature
-    // const expectedSignature = createHmac('sha256', signingSecret)
-    //   .update(signedContent)
-    //   .digest('base64');
+    if (!isValid) {
+      console.error('Invalid webhook signature');
+      return NextResponse.json(
+        { error: 'Invalid webhook signature' },
+        { status: 401 }
+      );
+    }
 
-    // Verify signature (webhook-signature can contain multiple signatures separated by space)
-    // const signatures = webhookSignature.split(' ');
-    // const isValid = signatures.some(sig => {
-    //   try {
-    //     return timingSafeEqual(
-    //       Buffer.from(sig),
-    //       Buffer.from(expectedSignature)
-    //     );
-    //   } catch {
-    //     return false;
-    //   }
-    // });
-
-    // if (!isValid) {
-    //   return NextResponse.json(
-    //     { error: 'Invalid webhook signature' },
-    //     { status: 401 }
-    //   );
-    // }
-
-    // Parse event
+    // 6. Parse and process the prediction event
     const event = JSON.parse(body);
     console.log(`Webhook received for prediction ${event.id}: ${event.status}`);
 
-    // Process the prediction
+    // 7. Process the prediction asynchronously
     await WebhookService.processCompletedPrediction(event);
 
+    // 8. Return success immediately (Replicate expects quick response)
     return NextResponse.json({ received: true });
 
   } catch (error) {
