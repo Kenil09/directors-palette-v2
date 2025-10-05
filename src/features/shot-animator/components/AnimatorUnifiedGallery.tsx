@@ -1,8 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import Image from 'next/image'
-import { Play, Download, Trash2, Film, Maximize2 } from 'lucide-react'
+import { Download, Trash2, Film, Maximize2 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -31,7 +30,6 @@ export function AnimatorUnifiedGallery({
   onDownload
 }: AnimatorUnifiedGalleryProps) {
   const [fullscreenVideo, setFullscreenVideo] = useState<GeneratedVideo | null>(null)
-  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null)
 
   const completedVideos = videos.filter(v => v.status === 'completed')
 
@@ -63,22 +61,11 @@ export function AnimatorUnifiedGallery({
                 >
                   {/* Thumbnail/Video Preview */}
                   <div className="relative aspect-video bg-slate-900">
-                    {playingVideoId === video.id ? (
                       <video
                         src={video.videoUrl}
                         controls
-                        autoPlay
                         className="w-full h-full"
-                        onEnded={() => setPlayingVideoId(null)}
                       />
-                    ) : (
-                      <Image
-                        src={video.thumbnailUrl || video.videoUrl}
-                        alt={video.shotName}
-                        fill
-                        className="object-cover"
-                      />
-                    )}
                   </div>
 
                   {/* Info & Actions */}
@@ -88,17 +75,6 @@ export function AnimatorUnifiedGallery({
 
                     {/* Action Buttons */}
                     <div className="grid grid-cols-4 gap-1">
-                      {/* Play Button */}
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setPlayingVideoId(playingVideoId === video.id ? null : video.id)}
-                        className="h-7 w-full text-purple-400 hover:text-purple-300 hover:bg-purple-950/30"
-                        title="Play"
-                      >
-                        <Play className="w-3.5 h-3.5" />
-                      </Button>
-
                       {/* Download Button */}
                       {onDownload && (
                         <Button

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import Replicate from 'replicate';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../../supabase/database.types';
+import { VideoGenerationService } from '@/features/shot-animator/services/video-generation.service';
+import type { AnimationModel, ModelSettings } from '@/features/shot-animator/types';
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
@@ -15,17 +17,33 @@ const supabase = createClient<Database>(
 export async function POST(request: NextRequest) {
   try {
     const {
+      model,
       prompt,
       image,
-      duration = 5,
-      resolution = '720p',
-      aspectRatio,
+      modelSettings,
+      referenceImages,
+      lastFrameImage,
       user_id,
     } = await request.json();
+
+    // Validate required fields
+    if (!model) {
+      return NextResponse.json(
+        { error: 'Model is required (seedance-lite or seedance-pro)' },
+        { status: 400 }
+      );
+    }
 
     if (!prompt) {
       return NextResponse.json(
         { error: 'Prompt is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!image) {
+      return NextResponse.json(
+        { error: 'Image is required for image-to-video generation' },
         { status: 400 }
       );
     }
@@ -37,28 +55,60 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prepare input for Replicate
-    const input: Record<string, string | number> = {
+    if (!modelSettings) {
+      return NextResponse.json(
+        { error: 'Model settings are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate input using service
+    const validation = VideoGenerationService.validateInput({
+      model: model as AnimationModel,
       prompt,
-      duration,
-      resolution,
-    };
+      image,
+      modelSettings: modelSettings as ModelSettings,
+      referenceImages,
+      lastFrameImage,
+    });
 
-    if (image) {
-      input.image = image;
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: validation.errors },
+        { status: 400 }
+      );
     }
 
-    if (aspectRatio) {
-      input.aspect_ratio = aspectRatio;
-    }
+    // Build Replicate input
+    const replicateInput = VideoGenerationService.buildReplicateInput({
+      model: model as AnimationModel,
+      prompt,
+      image,
+      modelSettings: modelSettings as ModelSettings,
+      referenceImages,
+      lastFrameImage,
+    });
+
+    // Get model identifier
+    const replicateModelId = VideoGenerationService.getReplicateModelId(model as AnimationModel);
 
     // Create Replicate prediction with webhook
     const webhookUrl = `${process.env.WEBHOOK_URL}/api/webhooks/replicate`;
     const prediction = await replicate.predictions.create({
-      model: 'bytedance/seedance-1-lite',
-      input,
+      model: replicateModelId,
+      input: replicateInput,
       webhook: webhookUrl,
       webhook_events_filter: ['completed'],
+    });
+
+    // Build metadata for storage
+    const metadata = VideoGenerationService.buildMetadata({
+      model: model as AnimationModel,
+      prompt,
+      image,
+      modelSettings: modelSettings as ModelSettings,
+      referenceImages,
+      lastFrameImage,
     });
 
     // Create gallery entry with proper schema
@@ -69,13 +119,7 @@ export async function POST(request: NextRequest) {
         prediction_id: prediction.id,
         generation_type: 'video',
         status: 'pending',
-        metadata: {
-          prompt,
-          model: 'bytedance/seedance-1-lite',
-          duration,
-          resolution,
-          aspect_ratio: aspectRatio,
-        },
+        metadata,
       })
       .select()
       .single();

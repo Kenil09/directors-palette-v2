@@ -29,6 +29,7 @@ export class GalleryService {
                 .from('gallery')
                 .select('*')
                 .eq('user_id', user.id)
+                .eq('generation_type', 'image')
                 .not('public_url', 'is', null)
                 .order('created_at', { ascending: false })
 

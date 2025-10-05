@@ -4,7 +4,6 @@
 
 // Main components
 export { default as ShotAnimator } from './ShotAnimator'
-export { CompactShotAnimatorView } from './CompactShotAnimatorView'
 export { ShotAnimatorView } from './ShotAnimatorView'
 
 // Card components

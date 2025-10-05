@@ -89,3 +89,25 @@ export interface ImageData {
   referenceImages?: unknown[]
   editHistory?: unknown[]
 }
+
+// API Types
+export interface VideoGenerationRequest {
+  model: AnimationModel
+  prompt: string
+  image: string
+  modelSettings: ModelSettings
+  referenceImages?: string[]
+  lastFrameImage?: string
+  user_id: string
+}
+
+export interface VideoGenerationResponse {
+  predictionId: string
+  galleryId: string
+  status: string
+}
+
+export interface VideoGenerationError {
+  error: string
+  details?: string[]
+}

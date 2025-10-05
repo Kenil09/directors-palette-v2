@@ -1,27 +1,41 @@
-"use client";
+'use client'
 
-import React, { useState } from "react";
-import { Film, Upload, ImageIcon, Play } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ShotAnimatorCard } from "./ShotAnimatorCard";
-import { ModelSettingsModal } from "./ModelSettingsModal";
-import { GenerationQueue } from "./GenerationQueue";
-import { GallerySelectModal } from "./GallerySelectModal";
+import React, { useState } from 'react'
+import { Upload, ImageIcon, Search, Play } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { CompactShotCard } from './CompactShotCard'
+import { PromptEditModal } from './PromptEditModal'
+import { ReferenceImagesModal } from './ReferenceImagesModal'
+import { LastFrameModal } from './LastFrameModal'
+import { ModelSettingsModal } from './ModelSettingsModal'
+import { GallerySelectModal } from './GallerySelectModal'
+import { AnimatorUnifiedGallery } from './AnimatorUnifiedGallery'
+import { useAuth } from '@/features/auth/hooks/useAuth'
+import { useVideoGeneration } from '../hooks/useVideoGeneration'
+import { useGallery } from '../hooks/useGallery'
 import {
   AnimationModel,
   ShotAnimationConfig,
   AnimatorSettings,
-  GenerationQueueItem,
-} from "../types";
+} from '../types'
 import {
   ANIMATION_MODELS,
   DEFAULT_MODEL_SETTINGS,
-} from "../config/models.config";
+} from '../config/models.config'
 
-// Mock gallery images for demonstration
+// Mock data
 const MOCK_GALLERY_IMAGES = [
   { id: "1", url: "https://picsum.photos/seed/shot1/400/400", name: "kitchen_scene.png" },
   { id: "2", url: "https://picsum.photos/seed/shot2/400/400", name: "bedroom_dusk.png" },
@@ -31,125 +45,43 @@ const MOCK_GALLERY_IMAGES = [
   { id: "6", url: "https://picsum.photos/seed/shot6/400/400", name: "living_room.png" },
   { id: "7", url: "https://picsum.photos/seed/shot7/400/400", name: "balcony_night.png" },
   { id: "8", url: "https://picsum.photos/seed/shot8/400/400", name: "street_view.png" },
-];
-
-// Mock shot configurations for demonstration
-const MOCK_SHOT_CONFIGS: ShotAnimationConfig[] = [
-  {
-    id: "demo-1",
-    imageUrl: "https://picsum.photos/seed/demo1/400/400",
-    imageName: "opening_scene.png",
-    prompt: "A cinematic slow pan across a modern kitchen at golden hour, warm sunlight streaming through windows",
-    referenceImages: [
-      "https://picsum.photos/seed/ref1/200/200",
-      "https://picsum.photos/seed/ref2/200/200",
-    ],
-    lastFrameImage: "https://picsum.photos/seed/last1/200/200",
-    includeInBatch: true,
-  },
-  {
-    id: "demo-2",
-    imageUrl: "https://picsum.photos/seed/demo2/400/400",
-    imageName: "bedroom_twilight.png",
-    prompt: "Gentle dolly in towards a cozy bedroom window as daylight fades to evening",
-    referenceImages: [],
-    includeInBatch: true,
-  },
-  {
-    id: "demo-3",
-    imageUrl: "https://picsum.photos/seed/demo3/400/400",
-    imageName: "hallway_reveal.png",
-    prompt: "Mysterious tracking shot down a dimly lit hallway with flickering lights",
-    referenceImages: [
-      "https://picsum.photos/seed/ref3/200/200",
-    ],
-    includeInBatch: false,
-  },
-];
-
-// Mock queue items for demonstration
-const MOCK_QUEUE_ITEMS: GenerationQueueItem[] = [
-  {
-    id: "queue-1",
-    shotConfig: {
-      id: "q1",
-      imageUrl: "https://picsum.photos/seed/queue1/400/400",
-      imageName: "garden_morning.png",
-      prompt: "Sunrise timelapse over a lush garden",
-      referenceImages: [],
-      includeInBatch: true,
-    },
-    model: "seedance-lite",
-    modelSettings: DEFAULT_MODEL_SETTINGS["seedance-lite"],
-    status: "processing",
-    progress: 65,
-    createdAt: new Date(),
-  },
-  {
-    id: "queue-2",
-    shotConfig: {
-      id: "q2",
-      imageUrl: "https://picsum.photos/seed/queue2/400/400",
-      imageName: "pool_sunset.png",
-      prompt: "Calm water reflections at sunset",
-      referenceImages: [],
-      includeInBatch: true,
-    },
-    model: "seedance-pro",
-    modelSettings: DEFAULT_MODEL_SETTINGS["seedance-pro"],
-    status: "queued",
-    createdAt: new Date(),
-  },
-  {
-    id: "queue-3",
-    shotConfig: {
-      id: "q3",
-      imageUrl: "https://picsum.photos/seed/queue3/400/400",
-      imageName: "balcony_night.png",
-      prompt: "City lights twinkling in the distance from a balcony",
-      referenceImages: [],
-      includeInBatch: true,
-    },
-    model: "seedance-lite",
-    modelSettings: DEFAULT_MODEL_SETTINGS["seedance-lite"],
-    status: "completed",
-    videoUrl: "https://example.com/video.mp4",
-    createdAt: new Date(),
-  },
-  {
-    id: "queue-4",
-    shotConfig: {
-      id: "q4",
-      imageUrl: "https://picsum.photos/seed/queue4/400/400",
-      imageName: "street_view.png",
-      prompt: "Busy street with passing cars",
-      referenceImages: [],
-      includeInBatch: true,
-    },
-    model: "seedance-lite",
-    modelSettings: DEFAULT_MODEL_SETTINGS["seedance-lite"],
-    status: "failed",
-    error: "Insufficient credits. Please upgrade your plan.",
-    createdAt: new Date(),
-  },
-];
+]
 
 export function ShotAnimatorView() {
-  const [selectedModel, setSelectedModel] =
-    useState<AnimationModel>("seedance-lite");
-  // Initialize with mock data to showcase the UI (change to [] for empty state)
-  const [shotConfigs, setShotConfigs] = useState<ShotAnimationConfig[]>(MOCK_SHOT_CONFIGS);
-  const [modelSettings, setModelSettings] = useState<AnimatorSettings>(
-    DEFAULT_MODEL_SETTINGS
-  );
-  // Initialize with mock queue items to showcase the UI (change to [] for empty state)
-  const [queueItems, setQueueItems] = useState<GenerationQueueItem[]>(MOCK_QUEUE_ITEMS);
-  const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
+  // Auth and hooks
+  const { user } = useAuth()
+  const { isGenerating, generateVideos } = useVideoGeneration()
+  const { videos: generatedVideos, deleteVideo } = useGallery()
 
-  const currentModelConfig = ANIMATION_MODELS[selectedModel];
-  const selectedCount = shotConfigs.filter((s) => s.includeInBatch).length;
+  // State
+  const [selectedModel, setSelectedModel] = useState<AnimationModel>("seedance-lite")
+  const [shotConfigs, setShotConfigs] = useState<ShotAnimationConfig[]>([])
+  const [modelSettings, setModelSettings] = useState<AnimatorSettings>(DEFAULT_MODEL_SETTINGS)
 
-  // Handle gallery selection
+  // Modals
+  const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false)
+  const [promptEditState, setPromptEditState] = useState<{ isOpen: boolean; configId?: string }>({ isOpen: false })
+  const [refEditState, setRefEditState] = useState<{ isOpen: boolean; configId?: string }>({ isOpen: false })
+  const [lastFrameEditState, setLastFrameEditState] = useState<{ isOpen: boolean; configId?: string }>({ isOpen: false })
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showOnlySelected, setShowOnlySelected] = useState(false)
+  const [sortBy, setSortBy] = useState('date')
+
+  const currentModelConfig = ANIMATION_MODELS[selectedModel]
+
+  // Filtered shots
+  const filteredShots = shotConfigs
+    .filter((shot) => {
+      if (showOnlySelected && !shot.includeInBatch) return false
+      if (searchQuery && !shot.imageName.toLowerCase().includes(searchQuery.toLowerCase())) return false
+      return true
+    })
+
+  const selectedCount = shotConfigs.filter((s) => s.includeInBatch).length
+
+  // Handlers
   const handleGallerySelect = (images: typeof MOCK_GALLERY_IMAGES) => {
     const newConfigs: ShotAnimationConfig[] = images.map((img) => ({
       id: `shot-${Date.now()}-${Math.random()}`,
@@ -158,16 +90,14 @@ export function ShotAnimatorView() {
       prompt: "",
       referenceImages: [],
       includeInBatch: true,
-    }));
-    setShotConfigs((prev) => [...prev, ...newConfigs]);
-  };
+    }))
+    setShotConfigs((prev) => [...prev, ...newConfigs])
+  }
 
-  // Handle file upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    const files = e.target.files
+    if (!files || files.length === 0) return
 
-    // TODO: Implement actual file upload to storage
     const newConfigs: ShotAnimationConfig[] = Array.from(files).map((file) => ({
       id: `shot-${Date.now()}-${Math.random()}`,
       imageUrl: URL.createObjectURL(file),
@@ -175,51 +105,78 @@ export function ShotAnimatorView() {
       prompt: "",
       referenceImages: [],
       includeInBatch: true,
-    }));
+    }))
 
-    setShotConfigs((prev) => [...prev, ...newConfigs]);
-    e.target.value = ""; // Reset input
-  };
+    setShotConfigs((prev) => [...prev, ...newConfigs])
+    e.target.value = ""
+  }
 
   const handleUpdateShotConfig = (id: string, updates: ShotAnimationConfig) => {
+    setShotConfigs((prev) => prev.map((config) => (config.id === id ? updates : config)))
+  }
+
+  const handleSavePrompt = (configId: string, prompt: string) => {
     setShotConfigs((prev) =>
-      prev.map((config) => (config.id === id ? updates : config))
-    );
-  };
+      prev.map((config) => (config.id === configId ? { ...config, prompt } : config))
+    )
+  }
 
-  const handleRemoveShotConfig = (id: string) => {
-    setShotConfigs((prev) => prev.filter((config) => config.id !== id));
-  };
+  const handleSaveReferences = (configId: string, images: string[]) => {
+    setShotConfigs((prev) =>
+      prev.map((config) => (config.id === configId ? { ...config, referenceImages: images } : config))
+    )
+  }
 
-  const handleGenerateAll = () => {
-    const selectedShots = shotConfigs.filter((s) => s.includeInBatch);
+  const handleSaveLastFrame = (configId: string, image?: string) => {
+    setShotConfigs((prev) =>
+      prev.map((config) => (config.id === configId ? { ...config, lastFrameImage: image } : config))
+    )
+  }
 
-    // TODO: Implement actual generation logic
-    console.log("Generating videos for:", {
-      model: selectedModel,
-      modelSettings: modelSettings[selectedModel],
-      shots: selectedShots,
-    });
+  const handleDeselectAll = () => {
+    setShotConfigs((prev) => prev.map((config) => ({ ...config, includeInBatch: false })))
+  }
 
-    // Create queue items
-    const newQueueItems: GenerationQueueItem[] = selectedShots.map((shot) => ({
-      id: `queue-${Date.now()}-${Math.random()}`,
-      shotConfig: shot,
-      model: selectedModel,
-      modelSettings: modelSettings[selectedModel],
-      status: "queued",
-      createdAt: new Date(),
-    }));
+  const handleDeleteShot = (id: string) => {
+    setShotConfigs((prev) => prev.filter((config) => config.id !== id))
+  }
 
-    setQueueItems((prev) => [...newQueueItems, ...prev]);
-  };
+  const handleGenerateAll = async () => {
+    if (!user?.id) {
+      console.error('User not authenticated')
+      return
+    }
+
+    const results = await generateVideos(
+      shotConfigs,
+      selectedModel,
+      modelSettings[selectedModel],
+      user.id
+    )
+
+    // Log results for debugging
+    console.log('Generation results:', results)
+  }
+
+  const handleDeleteVideo = async (id: string) => {
+    await deleteVideo(id)
+  }
+
+  const handleDownloadVideo = (videoUrl: string) => {
+    // TODO: Implement actual download
+    console.log("Downloading video:", videoUrl)
+  }
+
+  const currentPromptEditConfig = shotConfigs.find((c) => c.id === promptEditState.configId)
+  const currentRefEditConfig = shotConfigs.find((c) => c.id === refEditState.configId)
+  const currentLastFrameConfig = shotConfigs.find((c) => c.id === lastFrameEditState.configId)
 
   return (
-    <div className="w-full h-full flex flex-col">
-      {/* Model Selection */}
-      <div className="px-4 py-4 bg-slate-900/30 border-b border-slate-700 flex items-center justify-between gap-3">
-        <div className="flex gap-3">
-          <Label className="text-white text-sm block">Model</Label>
+    <div className="w-full h-full flex flex-col bg-slate-950">
+      {/* Top Toolbar */}
+      <div className="border-b border-slate-700 bg-slate-900/50">
+        {/* Model Selection & Settings */}
+        <div className="px-4 py-2 flex items-center justify-between gap-4">
           <RadioGroup
             value={selectedModel}
             onValueChange={(value) => setSelectedModel(value as AnimationModel)}
@@ -227,154 +184,195 @@ export function ShotAnimatorView() {
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="seedance-lite" id="model-lite" />
-              <Label htmlFor="model-lite" className="cursor-pointer text-white">
+              <Label htmlFor="model-lite" className="cursor-pointer text-white text-sm">
                 Seedance Lite
               </Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="seedance-pro" id="model-pro" />
-              <Label htmlFor="model-pro" className="cursor-pointer text-white">
+              <Label htmlFor="model-pro" className="cursor-pointer text-white text-sm">
                 Seedance Pro
               </Label>
             </div>
           </RadioGroup>
+
+          <div className="flex items-center gap-2">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Input
+                placeholder="Search images..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 w-48 bg-slate-800 border-slate-600 text-white text-sm"
+              />
+            </div>
+
+            {/* Upload */}
+            <label htmlFor="file-upload-toolbar">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 border-slate-600 text-white hover:bg-slate-800"
+                onClick={() => document.getElementById("file-upload-toolbar")?.click()}
+              >
+                <Upload className="w-4 h-4 mr-1" />
+                Upload
+              </Button>
+            </label>
+            <input
+              id="file-upload-toolbar"
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+
+            {/* Gallery */}
+            <Button
+              onClick={() => setIsGalleryModalOpen(true)}
+              size="sm"
+              className="h-8 bg-slate-700 hover:bg-slate-600"
+            >
+              <ImageIcon className="w-4 h-4 mr-1" />
+              Gallery
+            </Button>
+
+            {/* Settings */}
+            <ModelSettingsModal settings={modelSettings} onSave={setModelSettings} />
+          </div>
         </div>
-        <ModelSettingsModal
-          settings={modelSettings}
-          onSave={setModelSettings}
+
+        {/* Selection Controls */}
+        <div className="px-4 py-2 flex items-center justify-between border-t border-slate-700/50">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDeselectAll}
+              className="h-7 text-xs text-slate-400 hover:text-white"
+            >
+              Deselect All
+            </Button>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="show-selected"
+                checked={showOnlySelected}
+                onCheckedChange={(checked) => setShowOnlySelected(checked as boolean)}
+              />
+              <Label htmlFor="show-selected" className="text-xs text-slate-400 cursor-pointer">
+                Show only selected
+              </Label>
+            </div>
+          </div>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-32 h-7 text-xs bg-slate-800 border-slate-600">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="date">Sort: Date</SelectItem>
+              <SelectItem value="name">Sort: Name</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Main Content - Two Column Layout */}
+      <div className="flex-1 overflow-hidden grid grid-cols-[1fr_400px]">
+        {/* Left: Shots Grid */}
+        <div className="overflow-hidden">
+          <ScrollArea className="h-full">
+            {filteredShots.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-96 text-slate-500">
+                <ImageIcon className="w-16 h-16 mb-4" />
+                <p>No images to display</p>
+                <p className="text-sm mt-2">Upload images or add from gallery to get started</p>
+              </div>
+            ) : (
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-24">
+                {filteredShots.map((config) => (
+                  <CompactShotCard
+                    key={config.id}
+                    config={config}
+                    maxReferenceImages={currentModelConfig.maxReferenceImages}
+                    supportsLastFrame={currentModelConfig.supportsLastFrame}
+                    onUpdate={(updates) => handleUpdateShotConfig(config.id, updates)}
+                    onDelete={() => handleDeleteShot(config.id)}
+                    onEditPrompt={() => setPromptEditState({ isOpen: true, configId: config.id })}
+                    onManageReferences={() => setRefEditState({ isOpen: true, configId: config.id })}
+                    onManageLastFrame={() => setLastFrameEditState({ isOpen: true, configId: config.id })}
+                  />
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+
+        {/* Right: Unified Gallery */}
+        <AnimatorUnifiedGallery
+          videos={generatedVideos}
+          onDelete={handleDeleteVideo}
+          onDownload={handleDownloadVideo}
         />
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="p-4 space-y-6">
-            {/* Shots to Animate */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-white font-medium">Shots to Animate</h3>
-                <div className="flex gap-2">
-                  {/* Upload Images Button */}
-                  <label htmlFor="file-upload">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="border-slate-600 text-white hover:bg-slate-800 cursor-pointer"
-                      onClick={() => document.getElementById("file-upload")?.click()}
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Images
-                    </Button>
-                  </label>
-                  <input
-                    id="file-upload"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-
-                  {/* Add from Gallery Button */}
-                  <Button
-                    onClick={() => setIsGalleryModalOpen(true)}
-                    size="sm"
-                    className="bg-slate-700 hover:bg-slate-600"
-                  >
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    Add from Gallery
-                  </Button>
-                </div>
-              </div>
-
-              {shotConfigs.length === 0 ? (
-                <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-12 text-center">
-                  <Film className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400 mb-4">No shots added yet</p>
-                  <p className="text-slate-500 text-sm mb-6">
-                    Upload images or select from your gallery to get started
-                  </p>
-                  <div className="flex gap-3 justify-center">
-                    <label htmlFor="file-upload-empty">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="border-slate-600 text-white hover:bg-slate-800"
-                        onClick={() => document.getElementById("file-upload-empty")?.click()}
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload Images
-                      </Button>
-                    </label>
-                    <input
-                      id="file-upload-empty"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                    <Button
-                      onClick={() => setIsGalleryModalOpen(true)}
-                      className="bg-purple-600 hover:bg-purple-700"
-                    >
-                      <ImageIcon className="w-4 h-4 mr-2" />
-                      Add from Gallery
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {shotConfigs.map((config) => (
-                    <ShotAnimatorCard
-                      key={config.id}
-                      config={config}
-                      maxReferenceImages={currentModelConfig.maxReferenceImages}
-                      supportsLastFrame={currentModelConfig.supportsLastFrame}
-                      onUpdate={(updates) =>
-                        handleUpdateShotConfig(config.id, updates)
-                      }
-                      onRemove={() => handleRemoveShotConfig(config.id)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Generate Button */}
-            {shotConfigs.length > 0 && (
-              <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-sm border-t border-slate-700 p-4 -mx-4">
-                <Button
-                  onClick={handleGenerateAll}
-                  disabled={selectedCount === 0}
-                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 disabled:text-slate-500"
-                  size="lg"
-                >
-                  <Play className="w-5 h-5 mr-2" />
-                  Generate All Selected ({selectedCount})
-                </Button>
-              </div>
-            )}
-
-            {/* Generation Queue */}
-            {queueItems.length > 0 && (
-              <div className="space-y-4 pt-4 border-t border-slate-700">
-                <h3 className="text-white font-medium">Generation Queue</h3>
-                <GenerationQueue items={queueItems} />
-              </div>
-            )}
+      {/* Bottom Generate Bar */}
+      {selectedCount > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-300 p-4 z-50">
+          <div className="max-w-7xl mx-auto flex items-center justify-center">
+            <Button
+              onClick={handleGenerateAll}
+              disabled={isGenerating || !user}
+              size="lg"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Play className="w-5 h-5 mr-2" />
+              {isGenerating ? `Generating...` : `Generate Videos (${selectedCount} selected) - 75 credits`}
+            </Button>
           </div>
-        </ScrollArea>
-      </div>
+        </div>
+      )}
 
-      {/* Gallery Select Modal */}
+      {/* Modals */}
       <GallerySelectModal
         isOpen={isGalleryModalOpen}
         onClose={() => setIsGalleryModalOpen(false)}
         onSelect={handleGallerySelect}
         galleryImages={MOCK_GALLERY_IMAGES}
       />
+
+      {currentPromptEditConfig && (
+        <PromptEditModal
+          isOpen={promptEditState.isOpen}
+          onClose={() => setPromptEditState({ isOpen: false })}
+          onSave={(prompt) => handleSavePrompt(currentPromptEditConfig.id, prompt)}
+          initialPrompt={currentPromptEditConfig.prompt}
+          imageName={currentPromptEditConfig.imageName}
+        />
+      )}
+
+      {currentRefEditConfig && (
+        <ReferenceImagesModal
+          isOpen={refEditState.isOpen}
+          onClose={() => setRefEditState({ isOpen: false })}
+          onSave={(images) => handleSaveReferences(currentRefEditConfig.id, images)}
+          initialImages={currentRefEditConfig.referenceImages}
+          maxImages={currentModelConfig.maxReferenceImages}
+          imageName={currentRefEditConfig.imageName}
+        />
+      )}
+
+      {currentLastFrameConfig && (
+        <LastFrameModal
+          isOpen={lastFrameEditState.isOpen}
+          onClose={() => setLastFrameEditState({ isOpen: false })}
+          onSave={(image) => handleSaveLastFrame(currentLastFrameConfig.id, image)}
+          initialImage={currentLastFrameConfig.lastFrameImage}
+          imageName={currentLastFrameConfig.imageName}
+        />
+      )}
     </div>
-  );
+  )
 }
