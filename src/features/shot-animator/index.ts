@@ -7,8 +7,8 @@
 // Components
 export * from './components'
 
-// Stores (currently none active)
-// export * from './store'
-
 // Types
 export * from './types'
+
+// Config
+export * from './config/models.config'

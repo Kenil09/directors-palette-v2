@@ -21,7 +21,7 @@ interface AlternativeOption {
   label: string
   credits: number
   description: string
-  settings: Record<string, any>
+  settings: Record<string, unknown>
 }
 
 interface CreditInsufficiencyModalProps {
@@ -32,7 +32,7 @@ interface CreditInsufficiencyModalProps {
   operation: string
   alternatives?: AlternativeOption[]
   onPurchase?: (packageId: string) => void
-  onUseAlternative?: (settings: Record<string, any>) => void
+  onUseAlternative?: (settings: Record<string, unknown>) => void
 }
 
 const CREDIT_PACKAGES: CreditPackage[] = [

@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Film, ImageIcon, Layout, Sparkles } from "lucide-react";
 import { useLayoutStore } from "@/store/layout.store";
 import { ShotCreator } from "@/features/shot-creator";
+import { ShotAnimator } from "@/features/shot-animator";
 
 export default function Home() {
   const { activeTab, setActiveTab } = useLayoutStore();
@@ -82,27 +83,7 @@ export default function Home() {
 
           {/* Shot Animator Tab - SeeeDance Video Generation */}
           <TabsContent value="shot-animator" className="space-y-4">
-            shot-animator
-            {/* <ShotAnimatorTab
-              onSendToLibrary={handleSendToLibrary}
-              onSendToImageEdit={(imageUrl) => {
-                // Convert video frame to image for editing
-                console.log('🎞️ Sending video frame to image editor:', imageUrl)
-              }}
-              libraryItems={libraryItems}
-              libraryCategory={libraryCategory}
-              setLibraryCategory={setLibraryCategory}
-              libraryLoading={libraryLoading}
-              onFullscreenImage={setFullscreenImage}
-              onCategoryChange={async (itemId: string, newCategory: string) => {
-                // TODO: Implement category change functionality
-                toast({
-                  title: "Category Changed",
-                  description: `Item moved to ${newCategory}`
-                })
-                loadLibraryItems()
-              }}
-            /> */}
+            <ShotAnimator />
           </TabsContent>
 
           {/* Complete Layout & Annotation Editor Tab */}

@@ -1,9 +1,10 @@
+'use client'
+
 import React from 'react'
+import { CompactShotAnimatorView } from './CompactShotAnimatorView'
 
 const ShotAnimator = () => {
-    return (
-        <div>ShotAnimator</div>
-    )
+    return <CompactShotAnimatorView />
 }
 
 export default ShotAnimator

@@ -5,7 +5,9 @@
       "WebFetch(domain:replicate.com)",
       "WebFetch(domain:github.com)",
       "Bash(npx tsc:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
