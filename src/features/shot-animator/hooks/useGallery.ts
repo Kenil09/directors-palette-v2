@@ -7,9 +7,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { getClient } from '@/lib/db/client'
 import { VideoGalleryService } from '../services/gallery.service'
 import type { GeneratedVideo } from '../types'
+import { GalleryRow } from '@/lib/db/types'
 
 interface UseGalleryReturn {
   videos: GeneratedVideo[]
+  galleryImages: GalleryRow[]
   isLoading: boolean
   error: string | null
   deleteVideo: (videoId: string) => Promise<boolean>
@@ -18,6 +20,7 @@ interface UseGalleryReturn {
 
 export function useGallery(): UseGalleryReturn {
   const [videos, setVideos] = useState<GeneratedVideo[]>([])
+  const [galleryImages, setGalleryImages] = useState<GalleryRow[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -33,6 +36,21 @@ export function useGallery(): UseGalleryReturn {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load videos'
       setError(errorMessage)
       console.error('Video gallery loading error:', err)
+    }
+  }, [])
+
+  /**
+   * Load images from the database
+   */
+  const loadImages = useCallback(async () => {
+    try {
+      const loadedImages = await VideoGalleryService.loadUserImages()
+      setGalleryImages(loadedImages)
+      setError(null)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load images'
+      setError(errorMessage)
+      console.error('Image gallery loading error:', err)
     }
   }, [])
 
@@ -82,32 +100,44 @@ export function useGallery(): UseGalleryReturn {
       try {
         // Initial load
         await loadVideos()
+        await loadImages()
 
         // Set up real-time subscription to gallery changes
         const supabase = await getClient()
         if (supabase) {
           const { data: { user } } = await supabase.auth.getUser()
           if (user) {
-            subscription = supabase
-              .channel('video-gallery-changes')
+            const channel = supabase
+              .channel(`video-gallery-${user.id}`)
               .on(
                 'postgres_changes',
                 {
                   event: '*',
                   schema: 'public',
                   table: 'gallery',
-                  filter: `user_id=eq.${user.id}`,
                 },
                 async (payload) => {
                   console.log('Gallery change detected:', payload)
-                  
-                  // Reload videos when changes occur
-                  if (mounted) {
+
+                  // Check if the change is for the current user
+                  const record = payload.new as { user_id?: string } | undefined
+                  if (record && record.user_id === user.id && mounted) {
                     await loadVideos()
+                    await loadImages()
                   }
                 }
               )
-              .subscribe()
+              .subscribe((status, err) => {
+                if (status === 'SUBSCRIBED') {
+                  console.log('Gallery real-time subscription active')
+                }
+                if (err) {
+                  console.error('Subscription error:', err)
+                  setError(err.message || 'Failed to subscribe to gallery changes')
+                }
+              })
+
+            subscription = channel
           }
         }
       } catch (err) {
@@ -131,10 +161,11 @@ export function useGallery(): UseGalleryReturn {
         subscription.unsubscribe()
       }
     }
-  }, [loadVideos])
+  }, [loadVideos, loadImages])
 
   return {
     videos,
+    galleryImages,
     isLoading,
     error,
     deleteVideo,

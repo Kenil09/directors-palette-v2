@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Upload, ImageIcon, Search, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -25,6 +25,7 @@ import { AnimatorUnifiedGallery } from './AnimatorUnifiedGallery'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { useVideoGeneration } from '../hooks/useVideoGeneration'
 import { useGallery } from '../hooks/useGallery'
+import { useSettings } from '@/features/settings/hooks/useSettings'
 import {
   AnimationModel,
   ShotAnimationConfig,
@@ -35,28 +36,19 @@ import {
   DEFAULT_MODEL_SETTINGS,
 } from '../config/models.config'
 
-// Mock data
-const MOCK_GALLERY_IMAGES = [
-  { id: "1", url: "https://picsum.photos/seed/shot1/400/400", name: "kitchen_scene.png" },
-  { id: "2", url: "https://picsum.photos/seed/shot2/400/400", name: "bedroom_dusk.png" },
-  { id: "3", url: "https://picsum.photos/seed/shot3/400/400", name: "hallway_lights.png" },
-  { id: "4", url: "https://picsum.photos/seed/shot4/400/400", name: "garden_morning.png" },
-  { id: "5", url: "https://picsum.photos/seed/shot5/400/400", name: "pool_sunset.png" },
-  { id: "6", url: "https://picsum.photos/seed/shot6/400/400", name: "living_room.png" },
-  { id: "7", url: "https://picsum.photos/seed/shot7/400/400", name: "balcony_night.png" },
-  { id: "8", url: "https://picsum.photos/seed/shot8/400/400", name: "street_view.png" },
-]
-
 export function ShotAnimatorView() {
   // Auth and hooks
   const { user } = useAuth()
   const { isGenerating, generateVideos } = useVideoGeneration()
-  const { videos: generatedVideos, deleteVideo } = useGallery()
+  const { videos: generatedVideos, galleryImages, deleteVideo } = useGallery()
+  const { shotAnimator, updateShotAnimatorSettings } = useSettings()
 
   // State
   const [selectedModel, setSelectedModel] = useState<AnimationModel>("seedance-lite")
   const [shotConfigs, setShotConfigs] = useState<ShotAnimationConfig[]>([])
-  const [modelSettings, setModelSettings] = useState<AnimatorSettings>(DEFAULT_MODEL_SETTINGS)
+
+  // Get model settings from settings store (fallback to defaults)
+  const modelSettings = shotAnimator.modelSettings || DEFAULT_MODEL_SETTINGS
 
   // Modals
   const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false)
@@ -81,8 +73,23 @@ export function ShotAnimatorView() {
 
   const selectedCount = shotConfigs.filter((s) => s.includeInBatch).length
 
+  // Transform gallery images for the modal
+  const transformedGalleryImages = useMemo(() => {
+    return galleryImages
+      .filter((item) => item.public_url) // Only images with URLs
+      .map((item) => {
+        const metadata = (item.metadata as Record<string, unknown>) || {}
+        return {
+          id: item.id,
+          url: item.public_url!,
+          name: (metadata.prompt as string) || `Image ${item.id.slice(0, 8)}`,
+          createdAt: new Date(item.created_at),
+        }
+      })
+  }, [galleryImages])
+
   // Handlers
-  const handleGallerySelect = (images: typeof MOCK_GALLERY_IMAGES) => {
+  const handleGallerySelect = (images: typeof transformedGalleryImages) => {
     const newConfigs: ShotAnimationConfig[] = images.map((img) => ({
       id: `shot-${Date.now()}-${Math.random()}`,
       imageUrl: img.url,
@@ -167,6 +174,10 @@ export function ShotAnimatorView() {
     console.log("Downloading video:", videoUrl)
   }
 
+  const handleSaveModelSettings = async (newSettings: AnimatorSettings) => {
+    await updateShotAnimatorSettings({ modelSettings: newSettings })
+  }
+
   const currentPromptEditConfig = shotConfigs.find((c) => c.id === promptEditState.configId)
   const currentRefEditConfig = shotConfigs.find((c) => c.id === refEditState.configId)
   const currentLastFrameConfig = shotConfigs.find((c) => c.id === lastFrameEditState.configId)
@@ -241,7 +252,7 @@ export function ShotAnimatorView() {
             </Button>
 
             {/* Settings */}
-            <ModelSettingsModal settings={modelSettings} onSave={setModelSettings} />
+            <ModelSettingsModal settings={modelSettings} onSave={handleSaveModelSettings} />
           </div>
         </div>
 
@@ -340,7 +351,7 @@ export function ShotAnimatorView() {
         isOpen={isGalleryModalOpen}
         onClose={() => setIsGalleryModalOpen(false)}
         onSelect={handleGallerySelect}
-        galleryImages={MOCK_GALLERY_IMAGES}
+        galleryImages={transformedGalleryImages}
       />
 
       {currentPromptEditConfig && (

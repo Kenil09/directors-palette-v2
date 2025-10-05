@@ -2,6 +2,24 @@
 // Settings configuration types
 export interface ShotAnimatorSettings {
     id?: string
+    modelSettings?: {
+        'seedance-lite': {
+            duration: number
+            resolution: '480p' | '720p' | '1080p'
+            aspectRatio: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9' | '9:21'
+            fps: number
+            cameraFixed: boolean
+            seed?: number
+        }
+        'seedance-pro': {
+            duration: number
+            resolution: '480p' | '720p' | '1080p'
+            aspectRatio: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9' | '9:21'
+            fps: number
+            cameraFixed: boolean
+            seed?: number
+        }
+    }
 }
 
 export interface promptCategories {

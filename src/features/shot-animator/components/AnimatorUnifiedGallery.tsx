@@ -5,7 +5,7 @@ import { Download, Trash2, Film, Maximize2 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface GeneratedVideo {
   id: string
@@ -129,6 +129,9 @@ export function AnimatorUnifiedGallery({
       {/* Fullscreen Video Modal */}
       <Dialog open={!!fullscreenVideo} onOpenChange={() => setFullscreenVideo(null)}>
         <DialogContent className="max-w-7xl w-[95vw] h-[95vh] bg-black/95 border-slate-700 p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{fullscreenVideo?.shotName || 'Video Player'}</DialogTitle>
+          </DialogHeader>
           {fullscreenVideo && (
             <div className="relative w-full h-full flex flex-col">
               {/* Video Info */}

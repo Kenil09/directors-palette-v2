@@ -1,11 +1,12 @@
 /**
- * Gallery Service
- * Handles CRUD operations for gallery images in Supabase
+ * Image Gallery Service
+ * Feature-specific wrapper around the unified GalleryService
  */
 
-import { getClient } from '@/lib/db/client'
+import { GalleryService as UnifiedGalleryService } from '@/lib/services/gallery.service'
 import type { GeneratedImage } from '../store/unified-gallery-store'
 import { GalleryMetadata } from "@/features/generation/services/webhook.service"
+import type { GalleryRow } from '@/lib/db/types'
 
 export class GalleryService {
     /**
@@ -13,76 +14,16 @@ export class GalleryService {
      */
     static async loadUserGallery(): Promise<GeneratedImage[]> {
         try {
-            const supabase = await getClient()
-            if (!supabase) {
-                throw new Error('Supabase client not available')
-            }
+            const items = await UnifiedGalleryService.loadUserGallery('image')
 
-            const { data: { user }, error: authError } = await supabase.auth.getUser()
-            if (authError || !user) {
-                console.warn('User not authenticated, cannot load gallery')
-                return []
-            }
-
-            // Load gallery images for the current user where public_url is set (image is ready)
-            const { data: galleryItems, error: fetchError } = await supabase
-                .from('gallery')
-                .select('*')
-                .eq('user_id', user.id)
-                .eq('generation_type', 'image')
-                .not('public_url', 'is', null)
-                .order('created_at', { ascending: false })
-
-            if (fetchError) {
-                console.error('Error fetching gallery:', fetchError)
-                return []
-            }
-
-            // Debug: check if there are pending images
-            const { data: pendingItems } = await supabase
-                .from('gallery')
-                .select('id, prediction_id, created_at')
-                .eq('user_id', user.id)
-                .is('public_url', null)
-
-            if (pendingItems && pendingItems.length > 0) {
-                console.log(`📊 Found ${pendingItems.length} pending images (no public_url yet)`)
-            }
-
-            if (!galleryItems || galleryItems.length === 0) {
-                return []
+            // Check for pending items
+            const pendingCount = await UnifiedGalleryService.getPendingCount('image')
+            if (pendingCount > 0) {
+                console.log(`📊 Found ${pendingCount} pending images (no public_url yet)`)
             }
 
             // Transform database records to GeneratedImage format
-            const images: GeneratedImage[] = galleryItems.map(item => {
-                const metadata = item.metadata as GalleryMetadata || {}
-
-                return {
-                    id: item.id,
-                    url: item.public_url || '',
-                    prompt: metadata.prompt || '',
-                    source: 'shot-creator' as const,
-                    model: 'nano-banana',
-                    settings: {
-                        aspectRatio: '16:9',
-                        resolution: '1024x1024',
-                    },
-                    metadata: {
-                        createdAt: item.created_at,
-                        creditsUsed: 1,
-                    },
-                    createdAt: item.created_at,
-                    timestamp: new Date(item.created_at).getTime(),
-                    tags: [],
-                    persistence: {
-                        isPermanent: true,
-                        temporaryUrl: metadata.replicate_url,
-                        storagePath: item.storage_path || undefined,
-                        fileSize: item.file_size || undefined,
-                        downloadedAt: item.created_at,
-                    },
-                }
-            })
+            const images: GeneratedImage[] = items.map(item => this.transformToGeneratedImage(item))
 
             return images
         } catch (error) {
@@ -95,56 +36,39 @@ export class GalleryService {
      * Delete a gallery image (database entry and storage file)
      */
     static async deleteImage(imageId: string): Promise<{ success: boolean; error?: string }> {
-        try {
-            const supabase = await getClient()
-            if (!supabase) {
-                throw new Error('Supabase client not available')
-            }
+        return UnifiedGalleryService.deleteItem(imageId)
+    }
 
-            const { data: { user }, error: authError } = await supabase.auth.getUser()
-            if (authError || !user) {
-                throw new Error('User not authenticated')
-            }
+    /**
+     * Transform database row to GeneratedImage
+     */
+    private static transformToGeneratedImage(item: GalleryRow): GeneratedImage {
+        const metadata = item.metadata as GalleryMetadata || {}
 
-            // Get the gallery entry to find storage path
-            const { data: galleryItem, error: fetchError } = await supabase
-                .from('gallery')
-                .select('*')
-                .eq('id', imageId)
-                .eq('user_id', user.id)
-                .single()
-
-            if (fetchError || !galleryItem) {
-                throw new Error('Gallery item not found')
-            }
-
-            // Delete from storage if storage_path exists
-            if (galleryItem.storage_path) {
-                const { error: storageError } = await supabase.storage
-                    .from('directors-palette')
-                    .remove([galleryItem.storage_path])
-
-                if (storageError) {
-                    console.error('Error deleting from storage:', storageError)
-                }
-            }
-
-            // Delete from database
-            const { error: deleteError } = await supabase
-                .from('gallery')
-                .delete()
-                .eq('id', imageId)
-                .eq('user_id', user.id)
-
-            if (deleteError) {
-                throw deleteError
-            }
-
-            return { success: true }
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Failed to delete image'
-            console.error('Delete image error:', error)
-            return { success: false, error: errorMessage }
+        return {
+            id: item.id,
+            url: item.public_url || '',
+            prompt: metadata.prompt || '',
+            source: 'shot-creator' as const,
+            model: 'nano-banana',
+            settings: {
+                aspectRatio: '16:9',
+                resolution: '1024x1024',
+            },
+            metadata: {
+                createdAt: item.created_at,
+                creditsUsed: 1,
+            },
+            createdAt: item.created_at,
+            timestamp: new Date(item.created_at).getTime(),
+            tags: [],
+            persistence: {
+                isPermanent: true,
+                temporaryUrl: metadata.replicate_url,
+                storagePath: item.storage_path || undefined,
+                fileSize: item.file_size || undefined,
+                downloadedAt: item.created_at,
+            },
         }
     }
 }
