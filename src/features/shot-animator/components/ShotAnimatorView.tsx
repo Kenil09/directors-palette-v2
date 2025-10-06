@@ -26,6 +26,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth'
 import { useVideoGeneration } from '../hooks/useVideoGeneration'
 import { useGallery } from '../hooks/useGallery'
 import { useSettings } from '@/features/settings/hooks/useSettings'
+import { useShotAnimatorStore } from '../store'
 import {
   AnimationModel,
   ShotAnimationConfig,
@@ -43,9 +44,11 @@ export function ShotAnimatorView() {
   const { videos: generatedVideos, galleryImages, deleteVideo } = useGallery()
   const { shotAnimator, updateShotAnimatorSettings } = useSettings()
 
+  // Shot Animator Store
+  const { shotConfigs, setShotConfigs, addShotConfigs, updateShotConfig, removeShotConfig } = useShotAnimatorStore()
+
   // State
   const [selectedModel, setSelectedModel] = useState<AnimationModel>("seedance-lite")
-  const [shotConfigs, setShotConfigs] = useState<ShotAnimationConfig[]>([])
 
   // Get model settings from settings store (fallback to defaults)
   const modelSettings = shotAnimator.modelSettings || DEFAULT_MODEL_SETTINGS
@@ -98,7 +101,7 @@ export function ShotAnimatorView() {
       referenceImages: [],
       includeInBatch: true,
     }))
-    setShotConfigs((prev) => [...prev, ...newConfigs])
+    addShotConfigs(newConfigs)
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,38 +117,32 @@ export function ShotAnimatorView() {
       includeInBatch: true,
     }))
 
-    setShotConfigs((prev) => [...prev, ...newConfigs])
+    addShotConfigs(newConfigs)
     e.target.value = ""
   }
 
   const handleUpdateShotConfig = (id: string, updates: ShotAnimationConfig) => {
-    setShotConfigs((prev) => prev.map((config) => (config.id === id ? updates : config)))
+    updateShotConfig(id, updates)
   }
 
   const handleSavePrompt = (configId: string, prompt: string) => {
-    setShotConfigs((prev) =>
-      prev.map((config) => (config.id === configId ? { ...config, prompt } : config))
-    )
+    updateShotConfig(configId, { prompt })
   }
 
   const handleSaveReferences = (configId: string, images: string[]) => {
-    setShotConfigs((prev) =>
-      prev.map((config) => (config.id === configId ? { ...config, referenceImages: images } : config))
-    )
+    updateShotConfig(configId, { referenceImages: images })
   }
 
   const handleSaveLastFrame = (configId: string, image?: string) => {
-    setShotConfigs((prev) =>
-      prev.map((config) => (config.id === configId ? { ...config, lastFrameImage: image } : config))
-    )
+    updateShotConfig(configId, { lastFrameImage: image })
   }
 
   const handleDeselectAll = () => {
-    setShotConfigs((prev) => prev.map((config) => ({ ...config, includeInBatch: false })))
+    setShotConfigs(shotConfigs.map((config) => ({ ...config, includeInBatch: false })))
   }
 
   const handleDeleteShot = (id: string) => {
-    setShotConfigs((prev) => prev.filter((config) => config.id !== id))
+    removeShotConfig(id)
   }
 
   const handleGenerateAll = async () => {

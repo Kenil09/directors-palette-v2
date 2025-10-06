@@ -13,6 +13,8 @@ import { toast } from "@/components/ui/use-toast"
 import { useLayoutStore } from "@/store/layout.store"
 import ShotReferenceLibrary from "./reference-library/ShotReferenceLibrary"
 import CreatorPromptSettings from "./creator-prompt-settings"
+import CategorySelectionDialog from "./CategorySelectDialog"
+import FullscreenImageModal from "./FullscreenImageModal"
 
 const ShotCreator = () => {
     const { setActiveTab } = useLayoutStore()
@@ -20,7 +22,13 @@ const ShotCreator = () => {
     const {
         onUseAsReference,
         onSendToShotAnimator,
-        onSendToReferenceLibrary
+        onSendToReferenceLibrary,
+        fullscreenImage,
+        setFullscreenImage,
+        categoryDialogOpen,
+        setCategoryDialogOpen,
+        // setPendingGeneration,
+        pendingGeneration,
     } = useShotCreatorStore()
 
     // Load gallery from Supabase on mount
@@ -40,6 +48,56 @@ const ShotCreator = () => {
             title: 'Sent to Layout & Annotation',
             description: 'Image has been loaded in the Layout & Annotation tab',
         })
+    }
+
+    const handleCategorySave = async (category: string, tags: string[]) => {
+        console.log('🔍 handleCategorySave called with category:', category, 'tags:', tags)
+        console.log('🔍 pendingGeneration:', pendingGeneration)
+
+        if (pendingGeneration) {
+            try {
+                // const referenceTag = pendingGeneration.referenceTags?.[0]
+
+                // console.log('🔍 About to call saveImageToLibrary with:', {
+                //     imageUrl: pendingGeneration.imageUrl,
+                //     tags,
+                //     prompt: pendingGeneration.prompt,
+                //     source: 'generated',
+                //     settings: pendingGeneration.settings,
+                //     category,
+                //     referenceTag
+                // })
+
+                // const savedId = await saveImageToLibrary(
+                //     pendingGeneration.imageUrl,
+                //     tags,
+                //     pendingGeneration.prompt,
+                //     'generated',
+                //     pendingGeneration.settings,
+                //     category as any,
+                //     referenceTag
+                // )
+
+                // console.log('✅ Image saved to library with ID:', savedId)
+                // setPendingGeneration(null)
+                // console.log('🔍 Reloading library items...')
+                // loadLibraryItems()
+
+                toast({
+                    title: "Saved to Library",
+                    description: `Image saved to ${category} with ${tags.length} tags`
+                })
+            } catch (error) {
+                console.error('🔴 Error in handleCategorySave:', error)
+                toast({
+                    title: "Save Failed",
+                    description: error instanceof Error ? error.message : "Unknown error occurred",
+                    variant: "destructive"
+                })
+            }
+        } else {
+            console.log('❌ No pendingGeneration found!')
+        }
     }
 
     return (
@@ -132,6 +190,60 @@ const ShotCreator = () => {
                             </TabsContent>
                         </Tabs>
                     </div>
+
+                    {/* Category Selection Dialog */}
+                    <CategorySelectionDialog
+                        open={categoryDialogOpen}
+                        onOpenChange={setCategoryDialogOpen}
+                        onSave={handleCategorySave}
+                        initialTags={[]}
+                        imageUrl={pendingGeneration?.imageUrl}
+                    />
+                    {/* Fullscreen Image Modal */}
+                    <FullscreenImageModal
+                        // image={fullscreenImage}
+                        open={!!fullscreenImage}
+                        onOpenChange={(open) => {
+                            if (!open) setFullscreenImage(null)
+                        }}
+                    // onDelete={async (id) => {
+                    //     try {
+                    //         await referenceLibraryDB.deleteReference(id)
+                    //         loadLibraryItems()
+                    //         setFullscreenImage(null)
+                    //         toast({
+                    //             title: "Deleted",
+                    //             description: "Reference removed from library"
+                    //         })
+                    //     } catch (error) {
+                    //         toast({
+                    //             title: "Delete Failed",
+                    //             description: "Could not remove reference",
+                    //             variant: "destructive"
+                    //         })
+                    //     }
+                    // }}
+                    // onTagEdit={async (id, newTag) => {
+                    //     try {
+                    //         const ref = await referenceLibraryDB.getReference(id)
+                    //         if (ref) {
+                    //             const updatedRef = { ...ref, referenceTag: newTag || undefined }
+                    //             await referenceLibraryDB.saveReference(updatedRef)
+                    //             loadLibraryItems()
+                    //             toast({
+                    //                 title: "Tag Updated",
+                    //                 description: newTag ? `Reference tag set to @${newTag}` : "Reference tag removed"
+                    //             })
+                    //         }
+                    //     } catch (error) {
+                    //         toast({
+                    //             title: "Update Failed",
+                    //             description: "Could not update reference tag",
+                    //             variant: "destructive"
+                    //         })
+                    //     }
+                    // }}
+                    />
                 </div>
             </div>
         </div>

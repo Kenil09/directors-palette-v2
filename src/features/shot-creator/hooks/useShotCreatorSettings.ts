@@ -2,22 +2,13 @@ import { useEffect, useCallback, useState } from 'react';
 import { shotCreatorSettingsService } from '../services';
 import { ShotCreatorSettings } from '../types';
 import { getClient } from "@/lib/db/client";
-
-const DEFAULT_SETTINGS: ShotCreatorSettings = {
-  aspectRatio: "16:9",
-  resolution: "2K",
-  seed: undefined,
-  model: "nano-banana",
-  maxImages: 1,
-  sequentialGeneration: false,
-};
-
+import { DEFAULT_SETTINGS, useShotCreatorStore } from "../store";
 /**
  * Custom hook for managing shot creator settings with Supabase
  * Settings are persisted to Supabase only
  */
 export function useShotCreatorSettings() {
-  const [settings, setSettings] = useState<ShotCreatorSettings>(DEFAULT_SETTINGS);
+  const { settings, setSettings } = useShotCreatorStore()
   const [isInitialized, setIsInitialized] = useState(false);
 
   /**
@@ -51,7 +42,7 @@ export function useShotCreatorSettings() {
     };
 
     loadSettings();
-  }, []);
+  }, [setSettings]);
 
   /**
    * Save settings to both Supabase and localStorage immediately on change

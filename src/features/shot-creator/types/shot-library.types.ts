@@ -19,3 +19,15 @@ export interface LibraryImageReference {
     };
     referenceTag?: string; // The @ tag used for Gen4 reference
 }
+
+export interface LibraryImageReferences {
+    id: string
+    category: string
+    tags: string[] | null
+    created_at: string
+    gallery: {
+        id: string
+        public_url: string | null
+        metadata: unknown
+    }
+}

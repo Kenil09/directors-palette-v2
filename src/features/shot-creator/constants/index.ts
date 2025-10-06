@@ -47,3 +47,17 @@ export const DEFAULT_CATEGORIES: PromptCategory[] = [
 
 // Prompt library presets
 export * from './prompt-library-presets'
+
+export const categories = [
+    { value: 'people', label: 'People', description: 'Characters, portraits, persons' },
+    { value: 'places', label: 'Places', description: 'Locations, environments, settings' },
+    { value: 'props', label: 'Props', description: 'Objects, items, things' },
+    { value: 'unorganized', label: 'Unorganized', description: 'General or uncategorized' }
+]
+
+export const suggestedTags = {
+    people: ['portrait', 'character', 'person', 'face', 'human'],
+    places: ['landscape', 'environment', 'location', 'scene', 'background'],
+    props: ['object', 'item', 'thing', 'prop', 'accessory'],
+    unorganized: ['generated', 'art', 'design', 'concept', 'abstract']
+}

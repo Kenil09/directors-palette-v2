@@ -6,6 +6,7 @@ import { Film, ImageIcon, Layout, Sparkles } from "lucide-react";
 import { useLayoutStore } from "@/store/layout.store";
 import { ShotCreator } from "@/features/shot-creator";
 import { ShotAnimator } from "@/features/shot-animator";
+import { LayoutAnnotation } from "@/features/layout-annotation";
 
 export default function Home() {
   const { activeTab, setActiveTab } = useLayoutStore();
@@ -34,19 +35,19 @@ export default function Home() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gen4">
+                  <SelectItem value="shot-creator">
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4" />
                       Shot Creator
                     </div>
                   </SelectItem>
-                  <SelectItem value="workspace">
+                  <SelectItem value="shot-animator">
                     <div className="flex items-center gap-2">
                       <ImageIcon className="w-4 h-4" />
                       Shot Animator
                     </div>
                   </SelectItem>
-                  <SelectItem value="layout">
+                  <SelectItem value="layout-annotation">
                     <div className="flex items-center gap-2">
                       <Layout className="w-4 h-4" />
                       Layout & Annotation
@@ -59,17 +60,17 @@ export default function Home() {
 
           {/* Desktop: Original Tab Layout */}
           <TabsList className="hidden sm:grid grid-cols-3 w-full max-w-none min-h-[48px] h-auto">
-            {/* gen4 */}
+            {/* shot-creator */}
             <TabsTrigger value="shot-creator" className="flex items-center gap-2 min-h-[44px]">
               <Sparkles className="w-4 h-4" />
               <span className="hidden lg:inline">Shot Creator</span>
             </TabsTrigger>
-            {/* workspace */}
+            {/* shot-animator */}
             <TabsTrigger value="shot-animator" className="flex items-center gap-2 min-h-[44px]">
               <ImageIcon className="w-4 h-4" />
               <span className="hidden lg:inline">Shot Animator</span>
             </TabsTrigger>
-            {/* layout */}
+            {/* layout- annotation */}
             <TabsTrigger value="layout-annotation" className="flex items-center gap-2 min-h-[44px]">
               <Layout className="w-4 h-4" />
               <span className="hidden lg:inline">Layout & Annotation</span>
@@ -88,8 +89,7 @@ export default function Home() {
 
           {/* Complete Layout & Annotation Editor Tab */}
           <TabsContent value="layout-annotation">
-            layout-annotation
-            {/* <LayoutAnnotationWrapper /> */}
+            <LayoutAnnotation />
           </TabsContent>
         </Tabs>
       </div>

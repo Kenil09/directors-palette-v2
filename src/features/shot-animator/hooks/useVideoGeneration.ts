@@ -93,13 +93,23 @@ export function useVideoGeneration(): UseVideoGenerationReturn {
         )
       }
 
+      // Seedance Lite doesn't support using both reference images and last frame image
+      // Prioritize last frame image over reference images
+      let finalReferenceImages = uploadedReferenceImages
+      const finalLastFrameImage = uploadedLastFrameImage
+
+      if (model === 'seedance-lite' && uploadedReferenceImages && uploadedLastFrameImage) {
+        console.warn(`Shot ${shot.id}: Using last frame image, ignoring reference images for Seedance Lite`)
+        finalReferenceImages = undefined
+      }
+
       const requestBody: VideoGenerationRequest = {
         model,
         prompt: shot.prompt,
         image: uploadedImageUrl,
         modelSettings,
-        referenceImages: uploadedReferenceImages,
-        lastFrameImage: uploadedLastFrameImage,
+        referenceImages: finalReferenceImages,
+        lastFrameImage: finalLastFrameImage,
         user_id: userId,
       }
 

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useLibraryStore } from "../../store/shot-library.store"
 import { useShotCreatorStore } from "../../store/shot-creator.store"
 import { useToast } from "@/components/ui/use-toast"
@@ -22,11 +22,16 @@ const ShotReferenceLibrary = () => {
     const { setFullscreenImage } = useShotCreatorStore()
     const { libraryItems, libraryCategory, setLibraryCategory, libraryLoading, loadLibraryItems } = useLibraryStore()
 
+    // Load library items on mount
+    useEffect(() => {
+        loadLibraryItems()
+    }, [loadLibraryItems])
+
     const filteredItems = libraryCategory === 'all'
         ? libraryItems
         : libraryItems.filter(item => item.category === libraryCategory)
 
-    const onCategoryChange = async (itemId: string, newCategory: string) => {
+    const onCategoryChange = async (_itemId: string, newCategory: string) => {
         // TODO: Implement category change functionality
         toast({
             title: "Category Changed",
