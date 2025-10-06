@@ -2,10 +2,11 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useToast } from '@/hooks/use-toast'
-import { imageGenerationService, type ImageGenerationRequest } from '../services/image-generation.service'
+import { imageGenerationService } from '../services/image-generation.service'
 import { useShotCreatorStore } from '../store/shot-creator.store'
 import { getClient } from '@/lib/db/client'
 import { parseDynamicPrompt } from '../helpers/prompt-syntax-feedback'
+import { ImageGenerationRequest, ImageModel, ImageModelSettings } from "../types/image-generation.types"
 
 export interface GenerationProgress {
     status: 'idle' | 'starting' | 'processing' | 'waiting' | 'succeeded' | 'failed'
@@ -107,9 +108,10 @@ export function useImageGeneration() {
     }, [activeGalleryId, setShotCreatorProcessing, toast])
 
     const generateImage = useCallback(async (
+        model: ImageModel,
         prompt: string,
         referenceImages: string[] = [],
-        format: 'jpg' | 'png' | 'webp' = 'jpg'
+        modelSettings: ImageModelSettings
     ) => {
         try {
             // Get user ID from Supabase
@@ -143,9 +145,10 @@ export function useImageGeneration() {
             const results = []
             for (const variationPrompt of variations) {
                 const request: ImageGenerationRequest = {
+                    model,
                     prompt: variationPrompt,
                     referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
-                    format,
+                    modelSettings,
                     user_id: user.id,
                 }
 
@@ -165,6 +168,10 @@ export function useImageGeneration() {
                 galleryId: results[0].galleryId,
             })
             setShotCreatorProcessing(false)
+
+            // Clear reference images immediately after successful API call
+            const { setShotCreatorReferenceImages } = useShotCreatorStore.getState()
+            setShotCreatorReferenceImages([])
 
             toast({
                 title: 'Generation Started!',

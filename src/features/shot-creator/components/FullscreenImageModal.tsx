@@ -1,37 +1,50 @@
 'use client'
 
-import { X, Tag, Download, Copy, Trash2 } from 'lucide-react'
+import { X, Tag, Download, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import InlineTagEditor from "./creator-reference-manager/InlineTagEditor"
 import { useShotCreatorStore } from "../store"
 import Image from "next/image"
 
 interface FullscreenImageModalProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    onDelete?: (id: string) => void
-    onTagEdit?: (id: string, tag: string) => void
 }
 
 export default function FullscreenImageModal({
     open,
     onOpenChange,
-    onDelete,
-    onTagEdit
 }: FullscreenImageModalProps) {
     const { fullscreenImage } = useShotCreatorStore()
 
     if (!fullscreenImage) return null
 
     const handleDownload = async () => {
-        const link = document.createElement('a')
-        link.href = fullscreenImage.imageData
-        link.download = `reference_${fullscreenImage.id}.png`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
+        try {
+            const imageUrl = fullscreenImage.preview || fullscreenImage.imageData
+
+            // Fetch the image as a blob
+            const response = await fetch(imageUrl)
+            const blob = await response.blob()
+
+            // Create a temporary URL for the blob
+            const blobUrl = URL.createObjectURL(blob)
+
+            // Create and trigger download
+            const link = document.createElement('a')
+            link.href = blobUrl
+            link.download = `reference_${fullscreenImage.id}.png`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+
+            // Clean up the blob URL
+            URL.revokeObjectURL(blobUrl)
+        } catch (error) {
+            console.error('Failed to download image:', error)
+            alert('Could not download image. Please try again.')
+        }
     }
 
     const handleCopyUrl = async () => {
@@ -66,7 +79,7 @@ export default function FullscreenImageModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[98vw] w-[98vw] max-h-[98vh] h-[98vh] p-0 bg-slate-900 border-slate-600 overflow-hidden">
+            <DialogContent className="max-w-[98vw] max-h-[98vh] p-0 bg-slate-900 border-slate-600 overflow-hidden">
                 {/* Hidden title for accessibility */}
                 <DialogTitle className="sr-only">Image Preview</DialogTitle>
 
@@ -82,21 +95,43 @@ export default function FullscreenImageModal({
 
                 <div className="flex flex-col h-full">
                     {/* Image container - takes up most space */}
-                    <div className="flex-1 flex items-center justify-center bg-black/20 p-2 min-h-0 overflow-hidden">
-                        <Image
-                            src={fullscreenImage.preview || fullscreenImage.imageData}
-                            alt=""
-                            className="w-auto h-auto max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                            width={1000}
-                            height={1000}
-                            style={{
-                                maxWidth: '100%',
-                                maxHeight: '100%',
-                                width: 'auto',
-                                height: 'auto'
-                            }}
-                        />
-                    </div>
+                    {fullscreenImage && (fullscreenImage.imageData || fullscreenImage.preview) && (
+                        <div className="relative flex-1 flex items-center justify-center bg-black/20 p-2 min-h-0 overflow-hidden">
+                            <Image
+                                src={fullscreenImage.preview || fullscreenImage.imageData}
+                                alt=""
+                                className="w-auto h-auto max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                                width={500}
+                                height={300}
+                                style={{
+                                    maxWidth: '100%',
+                                    maxHeight: '100%',
+                                    width: 'auto',
+                                    height: 'auto'
+                                }}
+                            />
+
+                            {/* --- Action buttons overlay --- */}
+                            <div className="absolute bottom-4 right-4 flex gap-2 z-20">
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={handleCopyUrl}
+                                    className="bg-slate-800/70 hover:bg-slate-700 text-white border-slate-600 backdrop-blur-sm"
+                                >
+                                    <Copy className="w-4 h-4 mr-1" />
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={handleDownload}
+                                    className="bg-slate-800/70 hover:bg-slate-700 text-white border-slate-600 backdrop-blur-sm"
+                                >
+                                    <Download className="w-4 h-4 mr-1" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Information panel - minimal height */}
                     <div className="flex-shrink-0 bg-slate-800/90 backdrop-blur-sm border-t border-slate-600">
@@ -122,11 +157,10 @@ export default function FullscreenImageModal({
                             </div>
 
                             {/* Metadata and Reference Tag section */}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-start">
-
+                            <div className="grid grid-cols-1 lg:grid-cols-1 gap-2 items-start">
                                 {/* Category and Source */}
-                                <div className="lg:col-span-2 space-y-1">
-                                    <div className="flex items-center gap-4">
+                                <div className="lg:col-span-1 space-y-1">
+                                    <div className="flex justify-between items-center gap-4">
                                         <div className="flex items-center gap-2">
                                             <span className="text-sm font-medium text-slate-300">Category:</span>
                                             <Badge variant="outline" className="text-slate-200 border-slate-500 bg-slate-700/50">
@@ -140,57 +174,6 @@ export default function FullscreenImageModal({
                                             </Badge>
                                         </div>
                                     </div>
-
-                                    {/* Reference Tag Editor */}
-                                    {onTagEdit && (
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-medium text-slate-300">Reference:</span>
-                                            <InlineTagEditor
-                                                value={fullscreenImage.referenceTag}
-                                                onSave={(newTag) => onTagEdit(fullscreenImage.id, newTag)}
-                                                placeholder="Add reference tag..."
-                                                className="bg-slate-700/50 hover:bg-slate-700 text-white border border-slate-600 rounded px-3 py-1 transition-colors"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Action buttons */}
-                                <div className="lg:col-span-1 flex flex-wrap gap-2 lg:justify-end">
-                                    <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        onClick={handleDownload}
-                                        className="bg-slate-700 hover:bg-slate-600 text-white border-slate-600"
-                                    >
-                                        <Download className="w-4 h-4 mr-2" />
-                                        Download
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        onClick={handleCopyUrl}
-                                        className="bg-slate-700 hover:bg-slate-600 text-white border-slate-600"
-                                    >
-                                        <Copy className="w-4 h-4 mr-2" />
-                                        Copy
-                                    </Button>
-                                    {onDelete && (
-                                        <Button
-                                            size="sm"
-                                            variant="destructive"
-                                            onClick={() => {
-                                                if (confirm('Delete this fullscreenImage from library?')) {
-                                                    onDelete(fullscreenImage.id)
-                                                    onOpenChange(false)
-                                                }
-                                            }}
-                                            className="hover:bg-red-700"
-                                        >
-                                            <Trash2 className="w-4 h-4 mr-2" />
-                                            Delete
-                                        </Button>
-                                    )}
                                 </div>
                             </div>
 

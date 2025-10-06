@@ -7,16 +7,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { CompactShotCard } from './CompactShotCard'
-import { PromptEditModal } from './PromptEditModal'
 import { ReferenceImagesModal } from './ReferenceImagesModal'
 import { LastFrameModal } from './LastFrameModal'
 import { ModelSettingsModal } from './ModelSettingsModal'
@@ -55,14 +47,12 @@ export function ShotAnimatorView() {
 
   // Modals
   const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false)
-  const [promptEditState, setPromptEditState] = useState<{ isOpen: boolean; configId?: string }>({ isOpen: false })
   const [refEditState, setRefEditState] = useState<{ isOpen: boolean; configId?: string }>({ isOpen: false })
   const [lastFrameEditState, setLastFrameEditState] = useState<{ isOpen: boolean; configId?: string }>({ isOpen: false })
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('')
   const [showOnlySelected, setShowOnlySelected] = useState(false)
-  const [sortBy, setSortBy] = useState('date')
 
   const currentModelConfig = ANIMATION_MODELS[selectedModel]
 
@@ -125,10 +115,6 @@ export function ShotAnimatorView() {
     updateShotConfig(id, updates)
   }
 
-  const handleSavePrompt = (configId: string, prompt: string) => {
-    updateShotConfig(configId, { prompt })
-  }
-
   const handleSaveReferences = (configId: string, images: string[]) => {
     updateShotConfig(configId, { referenceImages: images })
   }
@@ -158,6 +144,21 @@ export function ShotAnimatorView() {
       user.id
     )
 
+    // Remove successfully generated shots from the list
+    if (results && results.length > 0) {
+      const successfulShotIds = results
+        .filter((result) => result.success)
+        .map((result) => result.shotId)
+
+      if (successfulShotIds.length > 0) {
+        // Remove shots that were successfully submitted for generation
+        const remainingConfigs = shotConfigs.filter(
+          (config) => !successfulShotIds.includes(config.id)
+        )
+        setShotConfigs(remainingConfigs)
+      }
+    }
+
     // Log results for debugging
     console.log('Generation results:', results)
   }
@@ -175,7 +176,6 @@ export function ShotAnimatorView() {
     await updateShotAnimatorSettings({ modelSettings: newSettings })
   }
 
-  const currentPromptEditConfig = shotConfigs.find((c) => c.id === promptEditState.configId)
   const currentRefEditConfig = shotConfigs.find((c) => c.id === refEditState.configId)
   const currentLastFrameConfig = shotConfigs.find((c) => c.id === lastFrameEditState.configId)
 
@@ -275,15 +275,6 @@ export function ShotAnimatorView() {
               </Label>
             </div>
           </div>
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-32 h-7 text-xs bg-slate-800 border-slate-600">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="date">Sort: Date</SelectItem>
-              <SelectItem value="name">Sort: Name</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
@@ -299,7 +290,7 @@ export function ShotAnimatorView() {
                 <p className="text-sm mt-2">Upload images or add from gallery to get started</p>
               </div>
             ) : (
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-24">
+              <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pb-24">
                 {filteredShots.map((config) => (
                   <CompactShotCard
                     key={config.id}
@@ -308,7 +299,6 @@ export function ShotAnimatorView() {
                     supportsLastFrame={currentModelConfig.supportsLastFrame}
                     onUpdate={(updates) => handleUpdateShotConfig(config.id, updates)}
                     onDelete={() => handleDeleteShot(config.id)}
-                    onEditPrompt={() => setPromptEditState({ isOpen: true, configId: config.id })}
                     onManageReferences={() => setRefEditState({ isOpen: true, configId: config.id })}
                     onManageLastFrame={() => setLastFrameEditState({ isOpen: true, configId: config.id })}
                   />
@@ -350,16 +340,6 @@ export function ShotAnimatorView() {
         onSelect={handleGallerySelect}
         galleryImages={transformedGalleryImages}
       />
-
-      {currentPromptEditConfig && (
-        <PromptEditModal
-          isOpen={promptEditState.isOpen}
-          onClose={() => setPromptEditState({ isOpen: false })}
-          onSave={(prompt) => handleSavePrompt(currentPromptEditConfig.id, prompt)}
-          initialPrompt={currentPromptEditConfig.prompt}
-          imageName={currentPromptEditConfig.imageName}
-        />
-      )}
 
       {currentRefEditConfig && (
         <ReferenceImagesModal

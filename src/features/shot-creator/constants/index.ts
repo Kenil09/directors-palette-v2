@@ -61,3 +61,6 @@ export const suggestedTags = {
     props: ['object', 'item', 'thing', 'prop', 'accessory'],
     unorganized: ['generated', 'art', 'design', 'concept', 'abstract']
 }
+
+// Model icons
+export * from './model-icons'

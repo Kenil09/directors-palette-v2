@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import Replicate from 'replicate';
 import { ReplicatePrediction, WebhookService } from '@/features/generation/services/webhook.service';
 
@@ -7,9 +7,10 @@ const replicate = new Replicate({
 });
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  console.log(request)
   try {
     const { id } = await params;
 

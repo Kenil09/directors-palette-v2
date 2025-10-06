@@ -2,12 +2,13 @@
 
 import React from 'react'
 import Image from 'next/image'
-import { Edit3, Image as ImageIcon, Film, Trash2 } from 'lucide-react'
+import { Image as ImageIcon, Film, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { ShotAnimationConfig } from '../types'
+import { Textarea } from "@/components/ui/textarea"
 
 interface CompactShotCardProps {
   config: ShotAnimationConfig
@@ -15,7 +16,6 @@ interface CompactShotCardProps {
   supportsLastFrame: boolean
   onUpdate: (config: ShotAnimationConfig) => void
   onDelete: () => void
-  onEditPrompt: () => void
   onManageReferences: () => void
   onManageLastFrame: () => void
 }
@@ -26,7 +26,6 @@ export function CompactShotCard({
   supportsLastFrame,
   onUpdate,
   onDelete,
-  onEditPrompt,
   onManageReferences,
   onManageLastFrame
 }: CompactShotCardProps) {
@@ -36,9 +35,8 @@ export function CompactShotCard({
 
   return (
     <Card
-      className={`bg-slate-800/50 border-2 transition-all hover:border-slate-600 ${
-        config.includeInBatch ? 'border-purple-500' : 'border-slate-700'
-      }`}
+      className={`bg-slate-800/50 border-2 transition-all hover:border-slate-600 ${config.includeInBatch ? 'border-purple-500' : 'border-slate-700'
+        }`}
     >
       {/* Image with Checkbox Overlay */}
       <div className="relative aspect-square bg-slate-900 group">
@@ -78,57 +76,56 @@ export function CompactShotCard({
       </div>
 
       {/* Card Content */}
-      <div className="p-3 space-y-2">
-        {/* Filename */}
+      <div className="px-3 space-y-2">
         <p className="text-xs text-slate-300 truncate font-medium">
           {config.imageName}
         </p>
-
+        {/* Filename */}
+        <Textarea
+          value={config.prompt}
+          onChange={(e) => onUpdate({ ...config, prompt: e.target.value })}
+          placeholder="Describe the animation..."
+          className="bg-slate-700 text-white text-xs min-h-[100px] resize-none"
+        />
         {/* Action Buttons */}
-        <div className="flex gap-2">
-          {/* Prompt Button */}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onEditPrompt}
-            className="flex-1 h-7 text-xs bg-slate-700/50 hover:bg-slate-700 text-purple-400 border border-purple-500/30"
-          >
-            <Edit3 className="w-3 h-3 mr-1" />
-            {config.prompt ? 'Edit' : 'Add'} Prompt
-          </Button>
-
+        <div className="flex items-center gap-2">
           {/* Reference Images Button */}
-          {maxReferenceImages > 0 && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onManageReferences}
-              className="h-7 px-2 text-xs bg-slate-700/50 hover:bg-slate-700 text-purple-400 border border-purple-500/30"
-            >
-              <ImageIcon className="w-3 h-3 mr-1" />
-              Refs
-              {config.referenceImages.length > 0 && (
-                <Badge className="ml-1 h-4 px-1 text-xs bg-purple-600">
-                  {config.referenceImages.length}
-                </Badge>
-              )}
-            </Button>
-          )}
+          <div>
+            {maxReferenceImages > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onManageReferences}
+                className="h-7 px-2 text-xs bg-slate-700/50 hover:bg-slate-700 text-purple-400 border border-purple-500/30"
+              >
+                <ImageIcon className="w-3 h-3 mr-1" />
+                Refs
+                {config.referenceImages.length > 0 && (
+                  <Badge className="ml-1 h-4 px-1 text-xs bg-purple-600">
+                    {config.referenceImages.length}
+                  </Badge>
+                )}
+              </Button>
+            )}
+          </div>
 
           {/* Last Frame Button */}
-          {supportsLastFrame && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onManageLastFrame}
-              className="h-7 px-2 text-xs bg-slate-700/50 hover:bg-slate-700 text-purple-400 border border-purple-500/30"
-            >
-              <Film className="w-3 h-3" />
-              {config.lastFrameImage && (
-                <Badge className="ml-1 h-4 px-1 text-xs bg-purple-600">1</Badge>
-              )}
-            </Button>
-          )}
+          <div>
+            {supportsLastFrame && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onManageLastFrame}
+                className="h-7 px-2 text-xs bg-slate-700/50 hover:bg-slate-700 text-purple-400 border border-purple-500/30"
+              >
+                <Film className="w-3 h-3" />
+                Last Frame
+                {config.lastFrameImage && (
+                  <Badge className="ml-1 h-4 px-1 text-xs bg-purple-600">1</Badge>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </Card>

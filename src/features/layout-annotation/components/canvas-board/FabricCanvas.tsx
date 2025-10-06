@@ -49,6 +49,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
     brushSize,
     color,
     fillMode = false,
+    backgroundColor = '#ffffff',
     onObjectsChange,
     onToolChange,
     canvasWidth = 1200,
@@ -98,6 +99,19 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
     setHistoryIndex(newHistory.length - 1)
   }, [history, historyIndex])
 
+  const onObjectsChangeRef = useRef(onObjectsChange);
+  const saveStateRef = useRef(saveState);
+  const onToolChangeRef = useRef(onToolChange);
+  const backgroundColorRef = useRef(backgroundColor);
+  const toolRef = useRef(tool);
+
+  useEffect(() => {
+    onObjectsChangeRef.current = onObjectsChange;
+    saveStateRef.current = saveState;
+    toolRef.current = tool;
+    backgroundColorRef.current = backgroundColor;
+  }, [onObjectsChange, saveState, tool, backgroundColor]);
+
   // Initialize Fabric canvas
   useEffect(() => {
     if (!canvasRef.current) return
@@ -105,8 +119,8 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
     const canvas = new fabric.Canvas(canvasRef.current, {
       width: canvasWidth,
       height: canvasHeight,
-      backgroundColor: '#ffffff', // Always white background
-      selection: tool === 'select',
+      backgroundColor: backgroundColorRef.current,
+      selection: toolRef.current === 'select',
       preserveObjectStacking: true,
       targetFindTolerance: 0
     })
@@ -115,17 +129,17 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
 
     // Set up event listeners
     canvas.on('object:added', () => {
-      saveState()
-      onObjectsChange?.(canvas.getObjects().length)
+      saveStateRef.current()
+      onObjectsChangeRef.current?.(canvas.getObjects().length)
     })
 
     canvas.on('object:removed', () => {
-      saveState()
-      onObjectsChange?.(canvas.getObjects().length)
+      saveStateRef.current()
+      onObjectsChangeRef.current?.(canvas.getObjects().length)
     })
 
     canvas.on('object:modified', () => {
-      saveState()
+      saveStateRef.current()
     })
 
     canvas.on('selection:created', (e) => {
@@ -145,6 +159,14 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
     }
   }, [canvasWidth, canvasHeight])
 
+  // Update background color when it changes
+  useEffect(() => {
+    const canvas = fabricRef.current
+    if (!canvas) return
+
+    canvas.backgroundColor = backgroundColorRef.current
+    canvas.renderAll()
+  }, [backgroundColorRef])
 
   // Update tool mode
   useEffect(() => {
@@ -162,7 +184,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
       canvas.freeDrawingBrush.color = color
     }
 
-    switch (tool) {
+    switch (toolRef.current) {
       case 'select':
         canvas.selection = true
         canvas.defaultCursor = 'default'
@@ -197,7 +219,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
     if (!canvas) return
 
     const handleMouseDown = (e: fabric.TPointerEventInfo<fabric.TPointerEvent>) => {
-      if (tool === 'select' || tool === 'brush' || tool === 'eraser') return
+      if (toolRef.current === 'select' || toolRef.current === 'brush' || toolRef.current === 'eraser') return
 
       const canvas = fabricRef.current!
       const pointer = canvas.getPointer(e.e)
@@ -214,7 +236,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
         obj.evented = false;
       });
       // Handle text tool separately - it doesn't use drag
-      if (tool === 'text') {
+      if (toolRef.current === 'text') {
         const text = new fabric.IText('Double-click to edit', {
           left: pointer.x,
           top: pointer.y,
@@ -230,7 +252,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
       }
 
       // Crop tool: disable all objects temporarily
-      if (tool === 'crop') {
+      if (toolRef.current === 'crop') {
         canvas.discardActiveObject()
         canvas.forEachObject(obj => {
           obj.selectable = false
@@ -242,7 +264,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
 
       let shape: fabric.Object | null = null
 
-      switch (tool) {
+      switch (toolRef.current) {
         case 'rectangle':
           shape = new fabric.Rect({
             left: pointer.x,
@@ -283,9 +305,10 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
           break
         case 'crop':
           // Remove any existing crop rectangle
-          canvas.getObjects().forEach(obj => {
-            if (obj?.data?.isCropRect) {
-              canvas.remove(obj)
+          canvas.getObjects().forEach((obj) => {
+            const fabricObj = obj as fabric.FabricObject & { data?: Record<string, boolean> };
+            if (fabricObj.data?.isCropRect) {
+              canvas.remove(fabricObj);
             }
           });
 
@@ -308,7 +331,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
       if (shape) {
         canvas.add(shape)
         setCurrentShape(shape)
-        if (tool === 'crop') {
+        if (toolRef.current === 'crop') {
           canvas.selection = false
           canvas.defaultCursor = 'crosshair'
           canvas.renderAll()
@@ -326,7 +349,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
       const top = Math.min(pointer.y, shapeStartPoint.y)
 
       // Crop tool updates
-      if (tool === 'crop') {
+      if (toolRef.current === 'crop') {
         // Ensure the crop rectangle stays within canvas bounds
         const boundedLeft = Math.max(0, left)
         const boundedTop = Math.max(0, top)
@@ -344,7 +367,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
         return;
       }
 
-      switch (tool) {
+      switch (toolRef.current) {
         case 'rectangle':
           currentShape.set({
             left: left,
@@ -388,7 +411,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
       currentShape.set({ selectable: true, evented: true });
 
 
-      if (tool === 'crop') {
+      if (toolRef.current === 'crop') {
         const rect = currentShape as fabric.Rect
         const { left = 0, top = 0, width = 0, height = 0 } = rect
 
@@ -437,7 +460,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
             canvas.renderAll();
 
             // Save state after adding
-            saveState();
+            saveStateRef.current()
           })
         }
 
@@ -456,12 +479,12 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
         setCurrentShape(null)
 
         // Switch back to select tool
-        onToolChange?.('select')
+        onToolChangeRef.current?.('select')
         return
       }
 
       // Arrow handling (unchanged)
-      if (tool === 'arrow' && currentShape instanceof fabric.Line) {
+      if (toolRef.current === 'arrow' && currentShape instanceof fabric.Line) {
         const x1 = currentShape.x1 || 0
         const y1 = currentShape.y1 || 0
         const x2 = currentShape.x2 || 0
@@ -499,8 +522,8 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
 
       // AUTO-SWITCH TO SELECT TOOL AFTER CREATING SHAPE
       // This ensures user can immediately manipulate the shape they just created
-      if (onToolChange && (tool === 'rectangle' || tool === 'circle' || tool === 'line' || tool === 'arrow')) {
-        onToolChange('select')
+      if (onToolChangeRef.current && (toolRef.current === 'rectangle' || toolRef.current === 'circle' || toolRef.current === 'line' || toolRef.current === 'arrow')) {
+        onToolChangeRef.current('select')
       }
 
       canvas.renderAll()
@@ -515,7 +538,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
       canvas.off('mouse:move', handleMouseMove)
       canvas.off('mouse:up', handleMouseUp)
     }
-  }, [tool, color, brushSize, fillMode, isDrawingShape, shapeStartPoint, currentShape])
+  }, [color, brushSize, fillMode, isDrawingShape, shapeStartPoint, currentShape])
 
   // Import image function
   const importImage = useCallback((imageUrl: string) => {
@@ -552,11 +575,11 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
       canvas.add(img)
       canvas.setActiveObject(img)
       canvas.renderAll()
-      saveState()
+      saveStateRef.current()
     }).catch((error) => {
       console.error('Failed to load image:', error)
     })
-  }, [saveState])
+  }, [])
 
   // Handle paste from clipboard
   const handlePaste = useCallback(async (e: ClipboardEvent) => {
@@ -639,8 +662,8 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
     canvas.renderAll()
 
     // Save state for undo/redo
-    saveState()
-  }, [saveState])
+    saveStateRef.current()
+  }, [])
 
   // Set up clipboard event listeners
   useEffect(() => {
@@ -762,7 +785,7 @@ const FabricCanvas = forwardRef<FabricCanvasRef, FabricCanvasProps>((props, ref)
     if (!canvas) return
 
     canvas.clear()
-    canvas.backgroundColor = '#ffffff' // Always white background
+    canvas.backgroundColor = backgroundColorRef.current
     canvas.renderAll()
     saveState()
   }, [saveState])

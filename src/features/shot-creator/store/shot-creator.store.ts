@@ -26,6 +26,7 @@ export interface ShotCreatorStore {
         prompt: string
         settings: ShotCreatorSettings
         referenceTags?: string[]
+        galleryId?: string
     } | null;
     generatedShotIds: Set<string>;
 
@@ -42,6 +43,7 @@ export interface ShotCreatorStore {
         prompt: string
         settings: ShotCreatorSettings
         referenceTags?: string[]
+        galleryId?: string
     } | null) => void;
 
     // full screen
@@ -49,7 +51,7 @@ export interface ShotCreatorStore {
     resetStore: () => void;
 
     // functions
-    onSendToReferenceLibrary: (imageUrl: string, setActiveTab: (tab: string) => void) => void;
+    onSendToReferenceLibrary: (imageUrl: string, galleryId?: string) => void;
     onUseAsReference: (imageUrl: string) => Promise<void>;
     onSendToShotAnimator: (imageUrl: string, setActiveTab: (tab: string) => void) => Promise<void>;
 }
@@ -90,17 +92,18 @@ export const useShotCreatorStore = create<ShotCreatorStore>()((set) => ({
             pendingGeneration: null,
         }),
 
-    onSendToReferenceLibrary: async (imageUrl: string) => {
-        console.log('🔍 sendToReferenceLibrary called with imageUrl:', imageUrl)
+    onSendToReferenceLibrary: async (imageUrl: string, galleryId?: string) => {
+        console.log('🔍 sendToReferenceLibrary called with imageUrl:', imageUrl, 'galleryId:', galleryId)
 
         try {
             const settings = useShotCreatorStore.getState().settings;
-            // For now, we'll save directly and let user categorize in the Reference Library
+            // Store pending generation with gallery ID for later category selection
             const pendingGen = {
                 imageUrl,
                 prompt: 'Generated image',
                 settings,
-                referenceTags: []
+                referenceTags: [],
+                galleryId // Store gallery ID for creating reference
             }
             console.log('🔍 Setting pendingGeneration:', pendingGen)
             set(() => ({ pendingGeneration: pendingGen }))
@@ -109,7 +112,7 @@ export const useShotCreatorStore = create<ShotCreatorStore>()((set) => ({
 
             toast({
                 title: 'Opening Save Dialog',
-                description: 'Category selection dialog should appear',
+                description: 'Select a category for this reference',
             })
         } catch (error) {
             console.error('🔴 Error in sendToReferenceLibrary:', error)

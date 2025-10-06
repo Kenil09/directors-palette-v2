@@ -193,9 +193,10 @@ export const MODEL_CONFIGS: Record<ModelId, ModelConfig> = {
         textColor: 'text-yellow-300',
         endpoint: 'google/nano-banana',
         costPerImage: 0.039,
-        supportedParameters: ['outputFormat'],
+        supportedParameters: ['outputFormat', 'aspectRatio'],
         parameters: {
-            outputFormat: MODEL_PARAMETERS.outputFormat
+            outputFormat: MODEL_PARAMETERS.outputFormat,
+            aspectRatio: MODEL_PARAMETERS.aspectRatio
         },
         maxReferenceImages: 10
     },

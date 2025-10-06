@@ -88,22 +88,24 @@ export function ModelSettingsModal({ settings, onSave }: ModelSettingsModalProps
           </TabsList>
 
           {/* Seedance Lite Settings */}
-          <TabsContent value="seedance-lite" className="space-y-6 mt-4">
-            <ModelSettingsPanel
-              model="seedance-lite"
-              settings={localSettings['seedance-lite']}
-              onUpdate={(updates) => updateModelSettings('seedance-lite', updates)}
-            />
-          </TabsContent>
+          <div className="max-h-[60vh] overflow-y-auto mt-4">
+            <TabsContent value="seedance-lite" className="space-y-6 mt-4">
+              <ModelSettingsPanel
+                model="seedance-lite"
+                settings={localSettings['seedance-lite']}
+                onUpdate={(updates) => updateModelSettings('seedance-lite', updates)}
+              />
+            </TabsContent>
 
-          {/* Seedance Pro Settings */}
-          <TabsContent value="seedance-pro" className="space-y-6 mt-4">
-            <ModelSettingsPanel
-              model="seedance-pro"
-              settings={localSettings['seedance-pro']}
-              onUpdate={(updates) => updateModelSettings('seedance-pro', updates)}
-            />
-          </TabsContent>
+            {/* Seedance Pro Settings */}
+            <TabsContent value="seedance-pro" className="space-y-6 mt-4">
+              <ModelSettingsPanel
+                model="seedance-pro"
+                settings={localSettings['seedance-pro']}
+                onUpdate={(updates) => updateModelSettings('seedance-pro', updates)}
+              />
+            </TabsContent>
+          </div>
         </Tabs>
 
         <DialogFooter>
@@ -115,7 +117,7 @@ export function ModelSettingsModal({ settings, onSave }: ModelSettingsModalProps
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </Dialog >
   )
 }
 
@@ -129,7 +131,7 @@ function ModelSettingsPanel({ model, settings, onUpdate }: ModelSettingsPanelPro
   const modelConfig = ANIMATION_MODELS[model]
 
   return (
-    <div className="space-y-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+    <div className="space-y-6 p-4 overflow-y-auto bg-slate-800/50 rounded-lg border border-slate-700">
       {/* Duration Slider */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">

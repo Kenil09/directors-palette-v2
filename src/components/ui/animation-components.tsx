@@ -82,7 +82,7 @@ interface MagneticProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const Magnetic = React.forwardRef<HTMLDivElement, MagneticProps>(
-  ({ className, strength = 10, children, ...props }, ref) => {
+  ({ className, strength = 10, children, ...props }) => {
     const magneticRef = React.useRef<HTMLDivElement>(null)
 
     React.useEffect(() => {
@@ -160,7 +160,7 @@ interface ParallaxProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const Parallax = React.forwardRef<HTMLDivElement, ParallaxProps>(
-  ({ className, speed = 0.5, direction = 'up', children, ...props }, ref) => {
+  ({ className, speed = 0.5, direction = 'up', children, ...props }) => {
     const parallaxRef = React.useRef<HTMLDivElement>(null)
 
     React.useEffect(() => {
@@ -168,7 +168,7 @@ const Parallax = React.forwardRef<HTMLDivElement, ParallaxProps>(
       if (!element) return
 
       const handleScroll = () => {
-        const rect = element.getBoundingClientRect()
+        const _rect = element.getBoundingClientRect()
         const scrolled = window.pageYOffset
         const rate = scrolled * speed
 

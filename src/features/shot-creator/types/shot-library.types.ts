@@ -1,9 +1,11 @@
+import { Category } from "../components/CategorySelectDialog";
+
 export interface LibraryImageReference {
     id: string;
     imageData: string; // base64 encoded image
     preview?: string;
     tags: string[];
-    category: 'people' | 'places' | 'props' | 'unorganized';
+    category: Category;
     prompt?: string;
     createdAt: Date;
     source: 'generated' | 'uploaded';

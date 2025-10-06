@@ -149,6 +149,7 @@ function LayoutAnnotationTab({ className, setActiveTab }: LayoutAnnotationTabPro
                         brushSize={canvasState.brushSize}
                         color={canvasState.color}
                         fillMode={canvasState.fillMode}
+                        backgroundColor={canvasState.backgroundColor}
                         canvasWidth={canvasState.canvasWidth}
                         canvasHeight={canvasState.canvasHeight}
                         onToolChange={(tool) => updateCanvasState({ tool })}

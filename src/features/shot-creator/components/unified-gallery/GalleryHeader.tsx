@@ -4,7 +4,7 @@ import { CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { ImageIcon, Search, Layout, Trash2 } from 'lucide-react'
+import { ImageIcon, Search, Trash2 } from 'lucide-react'
 import { ViewMode } from "../../hooks/useGalleryLogic"
 
 interface GalleryHeaderProps {
@@ -67,14 +67,6 @@ export function GalleryHeader({
             onClick={() => onViewModeChange('grid')}
           >
             Grid
-          </Button>
-          <Button
-            variant={viewMode === 'chains' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onViewModeChange('chains')}
-          >
-            <Layout className="w-4 h-4 mr-2" />
-            Chains
           </Button>
 
           {/* Selection Actions */}

@@ -32,6 +32,8 @@ interface CategorySelectionDialogProps {
     imageUrl?: string
 }
 
+export type Category = 'people' | 'places' | 'props' | 'unorganized'
+
 export default function CategorySelectionDialog({
     open,
     onOpenChange,
@@ -39,7 +41,7 @@ export default function CategorySelectionDialog({
     initialTags = [],
     imageUrl
 }: CategorySelectionDialogProps) {
-    const [category, setCategory] = useState<'people' | 'places' | 'props' | 'unorganized'>('unorganized')
+    const [category, setCategory] = useState<Category>('unorganized')
     const [tags, setTags] = useState<string[]>(initialTags)
     const [tagInput, setTagInput] = useState('')
 
@@ -99,7 +101,7 @@ export default function CategorySelectionDialog({
                     {/* Category Selection */}
                     <div className="space-y-2">
                         <Label>Category</Label>
-                        <Select value={category} onValueChange={(value: "people" | "places" | "props" | "unorganized") => setCategory(value)}>
+                        <Select value={category} onValueChange={(value: Category) => setCategory(value)}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a category" />
                             </SelectTrigger>
@@ -107,7 +109,7 @@ export default function CategorySelectionDialog({
                                 {categories.map(cat => (
                                     <SelectItem key={cat.value} value={cat.value}>
                                         <div>
-                                            <div className="font-medium">{cat.label}</div>
+                                            <div className="font-medium text-left">{cat.label}</div>
                                             <div className="text-xs text-muted-foreground">{cat.description}</div>
                                         </div>
                                     </SelectItem>
@@ -141,19 +143,23 @@ export default function CategorySelectionDialog({
                         </div>
 
                         {/* Current Tags */}
-                        {tags.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                {tags.map(tag => (
-                                    <Badge key={tag} variant="secondary" className="gap-1">
-                                        {tag}
-                                        <X
-                                            className="w-3 h-3 cursor-pointer hover:text-destructive"
-                                            onClick={() => handleRemoveTag(tag)}
-                                        />
-                                    </Badge>
-                                ))}
-                            </div>
-                        )}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            {tags.map(tag => (
+                                <Badge
+                                    key={tag}
+                                    variant="secondary"
+                                    className="flex items-center gap-1"
+                                >
+                                    {tag}
+                                    <span
+                                        className="w-3 h-3 cursor-pointer hover:text-destructive flex items-center justify-center"
+                                        onClick={() => handleRemoveTag(tag)}
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </span>
+                                </Badge>
+                            ))}
+                        </div>
 
                         {/* Suggested Tags */}
                         <div className="mt-2">

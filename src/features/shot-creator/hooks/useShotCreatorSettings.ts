@@ -66,7 +66,7 @@ export function useShotCreatorSettings() {
 
       return newSettings;
     });
-  }, []);
+  }, [setSettings]);
 
   return {
     settings,

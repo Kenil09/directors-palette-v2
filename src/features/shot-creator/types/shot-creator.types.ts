@@ -1,3 +1,5 @@
+import { Category } from "../components/CategorySelectDialog"
+
 export interface GalleryImage {
     id?: string
     url: string
@@ -37,7 +39,7 @@ export interface ShotCreatorGeneration {
     outputUrl?: string
     error?: string
     timestamp: number
-    category?: 'people' | 'places' | 'props' | 'unorganized'
+    category?: Category
 }
 
 export interface ShotCreatorSettings {

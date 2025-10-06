@@ -40,22 +40,83 @@ const PromptActions = ({ textareaRef }: { textareaRef: React.RefObject<HTMLTextA
         ? shotCreatorPrompt.length > 0 && shotCreatorReferenceImages.length > 0
         : shotCreatorPrompt.length > 0 && shotCreatorReferenceImages.length > 0
 
+    // Build model settings from shotCreatorSettings
+    const buildModelSettings = useCallback(() => {
+        const model = shotCreatorSettings.model || 'nano-banana'
+
+        // Base settings
+        const baseSettings: Record<string, unknown> = {}
+
+        switch (model) {
+            case 'nano-banana':
+                baseSettings.aspectRatio = shotCreatorSettings.aspectRatio
+                baseSettings.outputFormat = shotCreatorSettings.outputFormat || 'jpg'
+                break
+            case 'seedream-4':
+                baseSettings.size = shotCreatorSettings.resolution
+                baseSettings.aspectRatio = shotCreatorSettings.aspectRatio
+                if (shotCreatorSettings.resolution === 'custom') {
+                    baseSettings.width = shotCreatorSettings.customWidth
+                    baseSettings.height = shotCreatorSettings.customHeight
+                }
+                baseSettings.sequentialImageGeneration = shotCreatorSettings.sequentialGeneration ? 'auto' : 'disabled'
+                baseSettings.maxImages = shotCreatorSettings.maxImages || 1
+                break
+            case 'gen4-image':
+            case 'gen4-image-turbo':
+                baseSettings.aspectRatio = shotCreatorSettings.gen4AspectRatio || shotCreatorSettings.aspectRatio
+                baseSettings.resolution = shotCreatorSettings.resolution
+                if (shotCreatorSettings.seed !== undefined) {
+                    baseSettings.seed = shotCreatorSettings.seed
+                }
+                break
+            case 'qwen-image':
+                baseSettings.aspectRatio = shotCreatorSettings.aspectRatio
+                if (shotCreatorSettings.seed !== undefined) baseSettings.seed = shotCreatorSettings.seed
+                if (shotCreatorSettings.guidance !== undefined) baseSettings.guidance = shotCreatorSettings.guidance
+                if (shotCreatorSettings.num_inference_steps !== undefined) {
+                    baseSettings.numInferenceSteps = shotCreatorSettings.num_inference_steps
+                }
+                if (shotCreatorSettings.goFast !== undefined) baseSettings.goFast = shotCreatorSettings.goFast
+                break
+            case 'qwen-image-edit':
+                // For editing mode, first reference image is the image to edit
+                const editImage = shotCreatorReferenceImages[0]?.url || shotCreatorReferenceImages[0]?.preview
+                baseSettings.image = editImage
+                baseSettings.aspectRatio = shotCreatorSettings.aspectRatio
+                if (shotCreatorSettings.seed !== undefined) baseSettings.seed = shotCreatorSettings.seed
+                baseSettings.outputFormat = shotCreatorSettings.outputFormat || 'webp'
+                baseSettings.outputQuality = shotCreatorSettings.outputQuality || 95
+                baseSettings.goFast = shotCreatorSettings.goFast !== undefined ? shotCreatorSettings.goFast : true
+                break
+        }
+
+        console.log('✅ Built model settings:', JSON.stringify(baseSettings, null, 2))
+        return baseSettings
+    }, [shotCreatorSettings, shotCreatorReferenceImages])
+
     // Handle generation
     const handleGenerate = useCallback(async () => {
         if (canGenerate && !isGenerating) {
+            const model = shotCreatorSettings.model || 'nano-banana'
+
             // Extract reference image URLs
             const referenceUrls = shotCreatorReferenceImages
                 .map(ref => ref.url || ref.preview)
                 .filter((url): url is string => Boolean(url))
 
+            // Build model-specific settings
+            const modelSettings = buildModelSettings()
+
             // Call the generation API
             await generateImage(
+                model,
                 shotCreatorPrompt,
                 referenceUrls,
-                'jpg'
+                modelSettings
             )
         }
-    }, [canGenerate, isGenerating, shotCreatorPrompt, shotCreatorReferenceImages, generateImage])
+    }, [canGenerate, isGenerating, shotCreatorPrompt, shotCreatorReferenceImages, shotCreatorSettings, generateImage, buildModelSettings])
 
     // Handle selecting prompt from library
     const handleSelectPrompt = useCallback((prompt: string) => {

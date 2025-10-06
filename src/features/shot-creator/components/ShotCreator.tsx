@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useShotCreatorStore } from "../store/shot-creator.store"
 import { useShotCreatorSettings, useGalleryLoader } from "../hooks"
 import { Sparkles } from 'lucide-react'
@@ -15,10 +15,13 @@ import ShotReferenceLibrary from "./reference-library/ShotReferenceLibrary"
 import CreatorPromptSettings from "./creator-prompt-settings"
 import CategorySelectionDialog from "./CategorySelectDialog"
 import FullscreenImageModal from "./FullscreenImageModal"
+import { createReference } from "../services/reference-library.service"
+import { useLibraryStore } from "../store/shot-library.store"
 
 const ShotCreator = () => {
     const { setActiveTab } = useLayoutStore()
     const { settings: shotCreatorSettings, updateSettings } = useShotCreatorSettings()
+    const { loadLibraryItems } = useLibraryStore()
     const {
         onUseAsReference,
         onSendToShotAnimator,
@@ -27,7 +30,7 @@ const ShotCreator = () => {
         setFullscreenImage,
         categoryDialogOpen,
         setCategoryDialogOpen,
-        // setPendingGeneration,
+        setPendingGeneration,
         pendingGeneration,
     } = useShotCreatorStore()
 
@@ -36,6 +39,27 @@ const ShotCreator = () => {
 
     const isEditingMode = shotCreatorSettings.model === 'qwen-image-edit'
     const modelConfig = getModelConfig((shotCreatorSettings.model || 'nano-banana') as ModelId)
+
+    // Fix resolution mismatch on initial render
+    useEffect(() => {
+        const currentModel = shotCreatorSettings.model || 'nano-banana'
+        const config = getModelConfig(currentModel as ModelId)
+        const currentResolution = shotCreatorSettings.resolution
+
+        // Check if current resolution is valid for the current model
+        if (config.parameters.resolution) {
+            const validOptions = config.parameters.resolution.options?.map(opt => opt.value) || []
+            if (currentResolution && !validOptions.includes(currentResolution)) {
+                // Set to default resolution for this model
+                const defaultResolution = config.parameters.resolution.default as string
+                updateSettings({ resolution: defaultResolution })
+            } else if (!currentResolution) {
+                // No resolution set, use default
+                const defaultResolution = config.parameters.resolution.default as string
+                updateSettings({ resolution: defaultResolution })
+            }
+        }
+    }, [shotCreatorSettings.model, shotCreatorSettings.resolution, updateSettings])
 
     const onSendToImageEdit = (imageUrl: string) => {
         console.log('🎞️ Sending video frame to image editor:', imageUrl)
@@ -54,34 +78,24 @@ const ShotCreator = () => {
         console.log('🔍 handleCategorySave called with category:', category, 'tags:', tags)
         console.log('🔍 pendingGeneration:', pendingGeneration)
 
-        if (pendingGeneration) {
+        if (pendingGeneration && pendingGeneration.galleryId) {
             try {
-                // const referenceTag = pendingGeneration.referenceTags?.[0]
+                // Create reference in Supabase
+                const { data, error } = await createReference(
+                    pendingGeneration.galleryId,
+                    category,
+                    tags
+                )
 
-                // console.log('🔍 About to call saveImageToLibrary with:', {
-                //     imageUrl: pendingGeneration.imageUrl,
-                //     tags,
-                //     prompt: pendingGeneration.prompt,
-                //     source: 'generated',
-                //     settings: pendingGeneration.settings,
-                //     category,
-                //     referenceTag
-                // })
+                if (error) throw error
 
-                // const savedId = await saveImageToLibrary(
-                //     pendingGeneration.imageUrl,
-                //     tags,
-                //     pendingGeneration.prompt,
-                //     'generated',
-                //     pendingGeneration.settings,
-                //     category as any,
-                //     referenceTag
-                // )
+                console.log('✅ Reference created with ID:', data?.id)
 
-                // console.log('✅ Image saved to library with ID:', savedId)
-                // setPendingGeneration(null)
-                // console.log('🔍 Reloading library items...')
-                // loadLibraryItems()
+                // Clear pending generation
+                setPendingGeneration(null)
+
+                // Reload library to show new item
+                await loadLibraryItems()
 
                 toast({
                     title: "Saved to Library",
@@ -96,7 +110,12 @@ const ShotCreator = () => {
                 })
             }
         } else {
-            console.log('❌ No pendingGeneration found!')
+            console.log('❌ No pendingGeneration or galleryId found!')
+            toast({
+                title: "Save Failed",
+                description: "Missing gallery ID. Please try again.",
+                variant: "destructive"
+            })
         }
     }
 
@@ -110,8 +129,25 @@ const ShotCreator = () => {
                 </div>
                 <div className="w-full lg:w-auto">
                     <ModelSelector
-                        selectedModel={shotCreatorSettings.model || 'seedream-4'}
-                        onModelChange={(model: string) => updateSettings({ model: model as ModelId })}
+                        selectedModel={shotCreatorSettings.model || 'nano-banana'}
+                        onModelChange={(model: string) => {
+                            const newModel = model as ModelId
+                            const newModelConfig = getModelConfig(newModel)
+
+                            // Get default resolution for the new model
+                            const defaultResolution = newModelConfig.parameters.resolution?.default as string | undefined
+
+                            // Update settings with new model and its default resolution if it supports resolution
+                            const updates: {
+                                model: ModelId
+                                resolution?: string
+                            } = { model: newModel }
+                            if (defaultResolution) {
+                                updates.resolution = defaultResolution
+                            }
+
+                            updateSettings(updates)
+                        }}
                         compact={true}
                         showTooltips={false}
                     />
@@ -168,10 +204,8 @@ const ShotCreator = () => {
                                             onSendToLayoutAnnotation(imageUrl)
                                         }
                                     }}
-                                    onSendToLibrary={(imageUrl) => {
-                                        if (onSendToReferenceLibrary) {
-                                            onSendToReferenceLibrary(imageUrl, setActiveTab);
-                                        }
+                                    onSendToLibrary={(imageUrl: string, galleryId: string) => {
+                                        onSendToReferenceLibrary(imageUrl, galleryId);
                                     }}
                                     onSendToShotAnimator={(imageUrl) => {
                                         if (onSendToShotAnimator) {
@@ -201,48 +235,10 @@ const ShotCreator = () => {
                     />
                     {/* Fullscreen Image Modal */}
                     <FullscreenImageModal
-                        // image={fullscreenImage}
                         open={!!fullscreenImage}
                         onOpenChange={(open) => {
                             if (!open) setFullscreenImage(null)
                         }}
-                    // onDelete={async (id) => {
-                    //     try {
-                    //         await referenceLibraryDB.deleteReference(id)
-                    //         loadLibraryItems()
-                    //         setFullscreenImage(null)
-                    //         toast({
-                    //             title: "Deleted",
-                    //             description: "Reference removed from library"
-                    //         })
-                    //     } catch (error) {
-                    //         toast({
-                    //             title: "Delete Failed",
-                    //             description: "Could not remove reference",
-                    //             variant: "destructive"
-                    //         })
-                    //     }
-                    // }}
-                    // onTagEdit={async (id, newTag) => {
-                    //     try {
-                    //         const ref = await referenceLibraryDB.getReference(id)
-                    //         if (ref) {
-                    //             const updatedRef = { ...ref, referenceTag: newTag || undefined }
-                    //             await referenceLibraryDB.saveReference(updatedRef)
-                    //             loadLibraryItems()
-                    //             toast({
-                    //                 title: "Tag Updated",
-                    //                 description: newTag ? `Reference tag set to @${newTag}` : "Reference tag removed"
-                    //             })
-                    //         }
-                    //     } catch (error) {
-                    //         toast({
-                    //             title: "Update Failed",
-                    //             description: "Could not update reference tag",
-                    //             variant: "destructive"
-                    //         })
-                    //     }
-                    // }}
                     />
                 </div>
             </div>

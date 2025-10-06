@@ -25,7 +25,7 @@ export function useGalleryLogic(
   onUseAsReference?: (imageUrl: string) => void,
   onSendToShotAnimator?: (imageUrl: string) => void,
   onSendToLayoutAnnotation?: (imageUrl: string) => void,
-  onSendToLibrary?: (imageUrl: string) => void,
+  onSendToLibrary?: (imageUrl: string, galleryId: string) => void,
   onImageSelect?: (imageUrl: string) => void
 ) {
   const { toast } = useToast()
@@ -208,7 +208,18 @@ export function useGalleryLogic(
     } else if (onSendToTab) {
       onSendToTab(imageUrl, target)
     } else if (target === 'library' && onSendToLibrary) {
-      onSendToLibrary(imageUrl)
+      // Find the image to get its gallery ID
+      const image = images.find(img => img.url === imageUrl)
+      if (image) {
+        onSendToLibrary(imageUrl, image.id)
+      } else {
+        toast({
+          title: "Error",
+          description: "Could not find image in gallery",
+          variant: "destructive"
+        })
+        return
+      }
     }
 
     toast({

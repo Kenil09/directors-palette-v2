@@ -20,7 +20,7 @@ export interface UnifiedImageGalleryProps {
     isLoading?: boolean
     onSendToTab?: (imageUrl: string, targetTab: string) => void
     onUseAsReference?: (imageUrl: string) => void
-    onSendToLibrary?: (imageUrl: string) => void
+    onSendToLibrary?: (imageUrl: string, galleryId: string) => void
     onSendToLayoutAnnotation?: (imageUrl: string) => void
     onSendToShotAnimator?: (imageUrl: string) => void
     onImageSelect?: (imageUrl: string) => void
@@ -134,7 +134,7 @@ export function UnifiedImageGallery({
                                     updateImageReference(image.id, newRef)
                                 }
                             }}
-                            onAddToLibrary={() => onSendToLibrary?.(image.url)}
+                            onAddToLibrary={() => onSendToLibrary?.(image.url, image.id)}
                             showActions={true}
                         />
                     ))}
@@ -206,7 +206,12 @@ export function UnifiedImageGallery({
                                                 updateImageReference(image.id, newRef)
                                             }
                                         }}
-                                        onAddToLibrary={() => onSendToLibrary?.(image.url)}
+                                        onAddToLibrary={() => {
+                                            if (onSendToLibrary) {
+                                                // Pass gallery ID along with the image URL
+                                                onSendToLibrary(image.url, image.id)
+                                            }
+                                        }}
                                         showActions={true}
                                     />
                                 ))}
@@ -240,7 +245,7 @@ export function UnifiedImageGallery({
                             updateImageReference(fullscreenImage.id, newRef)
                         }
                     }}
-                    onAddToLibrary={onSendToLibrary ? (url: string) => onSendToLibrary(url) : undefined}
+                    onAddToLibrary={onSendToLibrary && fullscreenImage ? () => onSendToLibrary(fullscreenImage.url, fullscreenImage.id) : undefined}
                     showReferenceNamePrompt={showReferenceNamePrompt}
                 />
             )}

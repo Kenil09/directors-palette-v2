@@ -6,3 +6,4 @@
 
 export * from './shot-creator.types'
 export * from './shot-library.types'
+export * from './image-generation.types'

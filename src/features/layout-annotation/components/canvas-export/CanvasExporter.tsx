@@ -16,9 +16,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { FabricCanvasRef } from "../canvas-board"
-import { dataURLtoFile, ShotCreatorReferenceImage } from "@/features/shot-creator"
-import { generateId } from "@/features/shot-creator/helpers/short-creator.helper"
-import { ImageData } from "@/features/shot-animator"
+import { ShotCreatorReferenceImage } from "@/features/shot-creator"
 import { EXPORT_FORMATS, SCALE_PRESETS } from "../../constants"
 
 interface CanvasExporterProps {
