@@ -100,14 +100,12 @@ export function useGallery(): UseGalleryReturn {
       try {
         // Initial load
         await loadVideos()
-        await loadImages()
-
         // Set up real-time subscription to gallery changes
         const supabase = await getClient()
         if (supabase) {
           const { data: { user } } = await supabase.auth.getUser()
           if (user) {
-            const channel = supabase
+            subscription = supabase
               .channel(`video-gallery-${user.id}`)
               .on(
                 'postgres_changes',
@@ -115,29 +113,17 @@ export function useGallery(): UseGalleryReturn {
                   event: '*',
                   schema: 'public',
                   table: 'gallery',
+                  filter: `user_id=eq.${user.id}`,
                 },
                 async (payload) => {
                   console.log('Gallery change detected:', payload)
 
-                  // Check if the change is for the current user
-                  const record = payload.new as { user_id?: string } | undefined
-                  if (record && record.user_id === user.id && mounted) {
+                  if (mounted) {
                     await loadVideos()
-                    await loadImages()
                   }
                 }
               )
-              .subscribe((status, err) => {
-                if (status === 'SUBSCRIBED') {
-                  console.log('Gallery real-time subscription active')
-                }
-                if (err) {
-                  console.error('Subscription error:', err)
-                  setError(err.message || 'Failed to subscribe to gallery changes')
-                }
-              })
-
-            subscription = channel
+              .subscribe()
           }
         }
       } catch (err) {
@@ -161,7 +147,11 @@ export function useGallery(): UseGalleryReturn {
         subscription.unsubscribe()
       }
     }
-  }, [loadVideos, loadImages])
+  }, [loadVideos])
+
+  useEffect(() => {
+    loadImages()
+  }, [loadImages])
 
   return {
     videos,
