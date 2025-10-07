@@ -17,7 +17,6 @@ export { UnifiedImageGallery } from './unified-gallery/UnifiedImageGallery'
 export { GalleryHeader } from './unified-gallery/GalleryHeader'
 export { ImageCard } from './unified-gallery/ImageCard'
 export { default as FullScreenModal } from './unified-gallery/FullScreenModal'
-export { ChainView } from './unified-gallery/ChainView'
 export { Pagination } from './unified-gallery/Pagination'
 
 // Reference library

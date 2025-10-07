@@ -16,13 +16,25 @@ interface UseGalleryReturn {
   error: string | null
   deleteVideo: (videoId: string) => Promise<boolean>
   refreshVideos: () => Promise<void>
+  // Pagination support
+  currentPage: number
+  totalPages: number
+  totalCount: number
+  loadPage: (page: number) => Promise<void>
+  pageSize: number
 }
 
-export function useGallery(): UseGalleryReturn {
+export function useGallery(enablePagination = false, itemsPerPage = 12): UseGalleryReturn {
   const [videos, setVideos] = useState<GeneratedVideo[]>([])
   const [galleryImages, setGalleryImages] = useState<GalleryRow[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
+  const pageSize = itemsPerPage
 
   /**
    * Load videos from the database
@@ -42,17 +54,38 @@ export function useGallery(): UseGalleryReturn {
   /**
    * Load images from the database
    */
-  const loadImages = useCallback(async () => {
+  const loadImages = useCallback(async (page = 1) => {
     try {
-      const loadedImages = await VideoGalleryService.loadUserImages()
-      setGalleryImages(loadedImages)
+      if (enablePagination) {
+        const result = await VideoGalleryService.loadUserImagesPaginated(page, pageSize)
+        setGalleryImages(result.items)
+        setTotalPages(result.totalPages)
+        setTotalCount(result.total)
+        setCurrentPage(page)
+      } else {
+        const loadedImages = await VideoGalleryService.loadUserImages()
+        setGalleryImages(loadedImages)
+        setTotalCount(loadedImages.length)
+        setTotalPages(1)
+      }
       setError(null)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load images'
       setError(errorMessage)
       console.error('Image gallery loading error:', err)
     }
-  }, [])
+  }, [enablePagination, pageSize])
+
+  /**
+   * Load a specific page of images
+   */
+  const loadPage = useCallback(async (page: number) => {
+    if (!enablePagination) return
+
+    setIsLoading(true)
+    await loadImages(page)
+    setIsLoading(false)
+  }, [enablePagination, loadImages])
 
   /**
    * Delete a video from the gallery
@@ -160,5 +193,10 @@ export function useGallery(): UseGalleryReturn {
     error,
     deleteVideo,
     refreshVideos,
+    currentPage,
+    totalPages,
+    totalCount,
+    loadPage,
+    pageSize,
   }
 }

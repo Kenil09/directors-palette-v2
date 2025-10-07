@@ -14,7 +14,7 @@ import {
     Film,
     Images
 } from 'lucide-react'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { FabricCanvasRef } from "../canvas-board"
 import { ShotCreatorReferenceImage } from "@/features/shot-creator"
 import { EXPORT_FORMATS, SCALE_PRESETS } from "../../constants"
@@ -231,6 +231,7 @@ export function CanvasExporter({ canvasRef, onExport, setActiveTab }: CanvasExpo
                     prompt: "",
                     referenceImages: [],
                     includeInBatch: true,
+                    generatedVideos: []
                 }
 
                 // Add to shot animator store

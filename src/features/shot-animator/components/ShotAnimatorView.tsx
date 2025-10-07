@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
-import { Upload, ImageIcon, Search, Play } from 'lucide-react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { Upload, ImageIcon, Search, Play, VideoIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
@@ -13,12 +13,13 @@ import { ReferenceImagesModal } from './ReferenceImagesModal'
 import { LastFrameModal } from './LastFrameModal'
 import { ModelSettingsModal } from './ModelSettingsModal'
 import { GallerySelectModal } from './GallerySelectModal'
-import { AnimatorUnifiedGallery } from './AnimatorUnifiedGallery'
+// import { AnimatorUnifiedGallery } from './AnimatorUnifiedGallery'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { useVideoGeneration } from '../hooks/useVideoGeneration'
 import { useGallery } from '../hooks/useGallery'
 import { useSettings } from '@/features/settings/hooks/useSettings'
 import { useShotAnimatorStore } from '../store'
+import { getClient } from '@/lib/db/client'
 import {
   AnimationModel,
   ShotAnimationConfig,
@@ -28,12 +29,13 @@ import {
   ANIMATION_MODELS,
   DEFAULT_MODEL_SETTINGS,
 } from '../config/models.config'
+import VideoPreviewsModal from "./VideoPreviewsModal"
 
 export function ShotAnimatorView() {
   // Auth and hooks
   const { user } = useAuth()
   const { isGenerating, generateVideos } = useVideoGeneration()
-  const { videos: generatedVideos, galleryImages, deleteVideo } = useGallery()
+  const { galleryImages, currentPage, totalPages, loadPage } = useGallery(true, 6)
   const { shotAnimator, updateShotAnimatorSettings } = useSettings()
 
   // Shot Animator Store
@@ -47,6 +49,7 @@ export function ShotAnimatorView() {
 
   // Modals
   const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false)
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
   const [refEditState, setRefEditState] = useState<{ isOpen: boolean; configId?: string }>({ isOpen: false })
   const [lastFrameEditState, setLastFrameEditState] = useState<{ isOpen: boolean; configId?: string }>({ isOpen: false })
 
@@ -65,6 +68,85 @@ export function ShotAnimatorView() {
     })
 
   const selectedCount = shotConfigs.filter((s) => s.includeInBatch).length
+
+  // Real-time subscription to update video URLs when generation completes
+  useEffect(() => {
+    if (!user) return
+
+    // Collect all processing video gallery IDs
+    const galleryIds: string[] = []
+    shotConfigs.forEach(config => {
+      config.generatedVideos?.forEach(video => {
+        if (video.status === 'processing') {
+          galleryIds.push(video.galleryId)
+        }
+      })
+    })
+
+    if (galleryIds.length === 0) return
+
+    const galleryIdsSet = new Set(galleryIds) // For O(1) lookup
+    let subscription: { unsubscribe: () => void } | null = null
+
+    const setupSubscription = async () => {
+      const supabase = await getClient()
+      if (!supabase) return
+
+      subscription = supabase
+        .channel(`shot-animator-videos-${Date.now()}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'gallery',
+          },
+          (payload) => {
+            const updatedRecord = payload.new as { id: string; public_url?: string; metadata?: Record<string, unknown> }
+
+            // Only process if this ID is in our tracking list
+            if (!galleryIdsSet.has(updatedRecord.id)) return
+
+            // Update the specific video in the generatedVideos array
+            const updatedConfigs = shotConfigs.map(config => {
+              const updatedVideos = config.generatedVideos?.map(video => {
+                if (video.galleryId === updatedRecord.id) {
+                  if (updatedRecord.public_url) {
+                    return {
+                      ...video,
+                      videoUrl: updatedRecord.public_url,
+                      status: 'completed' as const
+                    }
+                  } else if (updatedRecord.metadata?.error) {
+                    return {
+                      ...video,
+                      status: 'failed' as const,
+                      error: String(updatedRecord.metadata.error)
+                    }
+                  }
+                }
+                return video
+              })
+
+              if (updatedVideos && updatedVideos !== config.generatedVideos) {
+                return { ...config, generatedVideos: updatedVideos }
+              }
+              return config
+            })
+            setShotConfigs(updatedConfigs)
+          }
+        )
+        .subscribe()
+    }
+
+    setupSubscription()
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+    }
+  }, [shotConfigs, user, setShotConfigs])
 
   // Transform gallery images for the modal
   const transformedGalleryImages = useMemo(() => {
@@ -90,6 +172,7 @@ export function ShotAnimatorView() {
       prompt: "",
       referenceImages: [],
       includeInBatch: true,
+      generatedVideos: [] // Initialize empty array
     }))
     addShotConfigs(newConfigs)
   }
@@ -98,15 +181,27 @@ export function ShotAnimatorView() {
     const files = e.target.files
     if (!files || files.length === 0) return
 
-    const newConfigs: ShotAnimationConfig[] = Array.from(files).map((file) => ({
-      id: `shot-${Date.now()}-${Math.random()}`,
-      imageUrl: URL.createObjectURL(file),
-      imageName: file.name,
-      prompt: "",
-      referenceImages: [],
-      includeInBatch: true,
-    }))
+    // Convert files to base64 for persistence
+    const filePromises = Array.from(files).map(async (file) => {
+      return new Promise<ShotAnimationConfig>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = (event) => {
+          const base64Url = event.target?.result as string
+          resolve({
+            id: `shot-${Date.now()}-${Math.random()}`,
+            imageUrl: base64Url,
+            imageName: file.name,
+            prompt: "",
+            referenceImages: [],
+            includeInBatch: true,
+            generatedVideos: []
+          })
+        }
+        reader.readAsDataURL(file)
+      })
+    })
 
+    const newConfigs = await Promise.all(filePromises)
     addShotConfigs(newConfigs)
     e.target.value = ""
   }
@@ -144,33 +239,39 @@ export function ShotAnimatorView() {
       user.id
     )
 
-    // Remove successfully generated shots from the list
+    // Append new videos to generatedVideos array
     if (results && results.length > 0) {
-      const successfulShotIds = results
-        .filter((result) => result.success)
-        .map((result) => result.shotId)
-
-      if (successfulShotIds.length > 0) {
-        // Remove shots that were successfully submitted for generation
-        const remainingConfigs = shotConfigs.filter(
-          (config) => !successfulShotIds.includes(config.id)
-        )
-        setShotConfigs(remainingConfigs)
-      }
+      const updatedConfigs = shotConfigs.map((config) => {
+        const result = results.find((r) => r.shotId === config.id)
+        if (result && result.success) {
+          const newVideo = {
+            galleryId: result.galleryId!,
+            status: 'processing' as const,
+            createdAt: new Date()
+          }
+          return {
+            ...config,
+            generatedVideos: [...(config.generatedVideos || []), newVideo],
+            includeInBatch: false // Uncheck after submission
+          }
+        }
+        return config
+      })
+      setShotConfigs(updatedConfigs)
     }
 
     // Log results for debugging
     console.log('Generation results:', results)
   }
 
-  const handleDeleteVideo = async (id: string) => {
-    await deleteVideo(id)
-  }
+  // const handleDeleteVideo = async (id: string) => {
+  //   await deleteVideo(id)
+  // }
 
-  const handleDownloadVideo = (videoUrl: string) => {
-    // TODO: Implement actual download
-    console.log("Downloading video:", videoUrl)
-  }
+  // const handleDownloadVideo = (videoUrl: string) => {
+  //   // TODO: Implement actual download
+  //   console.log("Downloading video:", videoUrl)
+  // }
 
   const handleSaveModelSettings = async (newSettings: AnimatorSettings) => {
     await updateShotAnimatorSettings({ modelSettings: newSettings })
@@ -238,6 +339,15 @@ export function ShotAnimatorView() {
               className="hidden"
             />
 
+            {/* Shot animator Video Gallery */}
+            <Button
+              onClick={() => setIsVideoModalOpen(true)}
+              size="sm"
+              className="h-8 bg-slate-700 hover:bg-slate-600"
+            >
+              <VideoIcon className="w-4 h-4 mr-1" />
+              Video Gallery
+            </Button>
             {/* Gallery */}
             <Button
               onClick={() => setIsGalleryModalOpen(true)}
@@ -290,7 +400,7 @@ export function ShotAnimatorView() {
                 <p className="text-sm mt-2">Upload images or add from gallery to get started</p>
               </div>
             ) : (
-              <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pb-24">
+              <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pb-24 content-stretch">
                 {filteredShots.map((config) => (
                   <CompactShotCard
                     key={config.id}
@@ -309,11 +419,11 @@ export function ShotAnimatorView() {
         </div>
 
         {/* Right: Unified Gallery */}
-        <AnimatorUnifiedGallery
+        {/* <AnimatorUnifiedGallery
           videos={generatedVideos}
           onDelete={handleDeleteVideo}
           onDownload={handleDownloadVideo}
-        />
+        /> */}
       </div>
 
       {/* Bottom Generate Bar */}
@@ -339,7 +449,13 @@ export function ShotAnimatorView() {
         onClose={() => setIsGalleryModalOpen(false)}
         onSelect={handleGallerySelect}
         galleryImages={transformedGalleryImages}
+        currentPage={currentPage}
+        totalPages={totalPages}        
+        onPageChange={loadPage}
       />
+
+      {/* Video Modal */}
+      <VideoPreviewsModal isOpen={isVideoModalOpen} onClose={() => setIsVideoModalOpen(false)} />
 
       {currentRefEditConfig && (
         <ReferenceImagesModal

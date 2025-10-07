@@ -54,10 +54,9 @@ export function useImageGeneration() {
                             setShotCreatorProcessing(false)
                             setActiveGalleryId(null)
 
-                            // Reset prompt and reference images
-                            const { setShotCreatorPrompt, setShotCreatorReferenceImages } = useShotCreatorStore.getState()
+                            // Reset prompt only (keep reference images for reuse)
+                            const { setShotCreatorPrompt } = useShotCreatorStore.getState()
                             setShotCreatorPrompt('')
-                            setShotCreatorReferenceImages([])
 
                             toast({
                                 title: 'Image Ready!',
@@ -168,10 +167,6 @@ export function useImageGeneration() {
                 galleryId: results[0].galleryId,
             })
             setShotCreatorProcessing(false)
-
-            // Clear reference images immediately after successful API call
-            const { setShotCreatorReferenceImages } = useShotCreatorStore.getState()
-            setShotCreatorReferenceImages([])
 
             toast({
                 title: 'Generation Started!',

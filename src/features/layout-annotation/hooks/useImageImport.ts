@@ -5,7 +5,7 @@
  */
 
 import { useCallback, ChangeEvent, RefObject } from 'react'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { useLayoutAnnotationStore } from '../store'
 
 interface ImageImportProps {

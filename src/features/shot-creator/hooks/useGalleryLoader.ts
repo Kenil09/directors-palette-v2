@@ -10,7 +10,7 @@ import { getClient } from '@/lib/db/client'
 export function useGalleryLoader() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const { loadImages } = useUnifiedGalleryStore()
+    const { loadImagesPaginated, currentPage, pageSize } = useUnifiedGalleryStore()
 
     // Load gallery on mount and subscribe to real-time updates
     useEffect(() => {
@@ -24,11 +24,14 @@ export function useGalleryLoader() {
             setError(null)
 
             try {
-                const images = await GalleryService.loadUserGallery()
+                const { images, total, totalPages } = await GalleryService.loadUserGalleryPaginated(
+                    currentPage,
+                    pageSize
+                )
 
                 if (!mounted) return
 
-                loadImages(images)
+                loadImagesPaginated(images, total, totalPages)
 
                 // Set up real-time subscription to gallery changes
                 const supabase = await getClient()
@@ -47,8 +50,9 @@ export function useGalleryLoader() {
                                 },
                                 async () => {
                                     // Reload gallery when changes occur
-                                    const updatedImages = await GalleryService.loadUserGallery()
-                                    loadImages(updatedImages)
+                                    const { images: updatedImages, total: updatedTotal, totalPages: updatedTotalPages } =
+                                        await GalleryService.loadUserGalleryPaginated(currentPage, pageSize)
+                                    loadImagesPaginated(updatedImages, updatedTotal, updatedTotalPages)
                                 }
                             )
                             .subscribe()
@@ -75,7 +79,7 @@ export function useGalleryLoader() {
                 subscription.unsubscribe()
             }
         }
-    }, [loadImages])
+    }, [loadImagesPaginated, currentPage, pageSize])
 
     return {
         isLoading,

@@ -2,7 +2,7 @@ import React from 'react'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
 import { X, Copy, Download, ChevronLeft, ChevronRight, FileText, Link, Tag, Sparkles, Film, Layout, Save, Trash2 } from 'lucide-react'
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import { GeneratedImage } from "../../store/unified-gallery-store"
 
 interface FullscreenModalProps {
@@ -206,17 +206,6 @@ function FullscreenModal({
                                 {new Date(fullscreenImage.createdAt || Date.now()).toLocaleString()}
                             </p>
                         </div>
-
-                        {/* Chain Info */}
-                        {fullscreenImage.chain && (
-                            <div className="mb-4 p-3 bg-purple-900/30 rounded">
-                                <h4 className="text-purple-300 text-xs uppercase mb-2">Pipeline Step</h4>
-                                <p className="text-white text-sm">
-                                    Step {fullscreenImage.chain.stepNumber} of {fullscreenImage.chain.totalSteps}
-                                </p>
-                                <p className="text-purple-200 text-xs mt-1">{fullscreenImage.chain.stepPrompt}</p>
-                            </div>
-                        )}
 
                         {/* Actions */}
                         <div className="mt-6 space-y-2">

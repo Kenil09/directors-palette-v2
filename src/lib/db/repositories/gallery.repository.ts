@@ -75,6 +75,81 @@ export class GalleryRepository {
     }
   }
 
+  async getPaginated(
+    filters: GalleryFilters = {},
+    options: {
+      page: number;
+      pageSize: number;
+      orderBy?: string;
+      ascending?: boolean;
+    }
+  ): Promise<RepositoryListResult<GalleryRow> & { total: number; totalPages: number }> {
+    try {
+      const { page, pageSize, orderBy = 'created_at', ascending = false } = options;
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      // Build count query
+      let countQuery = this.client.from('gallery').select('*', { count: 'exact', head: true });
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            countQuery = countQuery.in(key, value);
+          } else {
+            countQuery = countQuery.eq(key, value);
+          }
+        }
+      });
+
+      // Build data query
+      let dataQuery = this.client.from('gallery').select('*');
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            dataQuery = dataQuery.in(key, value);
+          } else {
+            dataQuery = dataQuery.eq(key, value);
+          }
+        }
+      });
+
+      // Apply ordering and pagination
+      dataQuery = dataQuery.order(orderBy, { ascending }).range(from, to);
+
+      // Execute both queries
+      const [{ count, error: countError }, { data: galleries, error: dataError }] = await Promise.all([
+        countQuery,
+        dataQuery,
+      ]);
+
+      if (countError || dataError) {
+        return {
+          data: [],
+          error: DatabaseErrorHandler.handle(countError || dataError).message,
+          total: 0,
+          totalPages: 0,
+        };
+      }
+
+      const total = count || 0;
+      const totalPages = Math.ceil(total / pageSize);
+
+      return {
+        data: galleries || [],
+        error: null,
+        total,
+        totalPages,
+      };
+    } catch (error) {
+      return {
+        data: [],
+        error: DatabaseErrorHandler.handle(error).message,
+        total: 0,
+        totalPages: 0,
+      };
+    }
+  }
+
   async update(id: string, data: GalleryUpdate): Promise<RepositoryResult<GalleryRow>> {
     try {
       const { data: gallery, error } = await this.client

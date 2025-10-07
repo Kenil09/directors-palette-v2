@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { useSettingStore } from '@/features/settings/store/setting.store'
 import { SettingsConfig } from '@/features/settings/types/setting.types'
 import { useAuth } from '@/features/auth/hooks/useAuth'
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 export const useSettings = () => {
   const { user } = useAuth()

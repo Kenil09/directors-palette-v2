@@ -10,11 +10,6 @@ export interface GalleryImage {
     source?: string
     reference?: string
     seed?: number
-    chain?: {
-        chainId: string
-        stepNumber: number
-        stepPrompt: string
-    }
     metadata?: Record<string, unknown>
 }
 
@@ -56,6 +51,7 @@ export interface ShotCreatorSettings {
     guidance?: number // 0-10 for image generation guidance
     num_inference_steps?: number // 10-50 denoising steps
     negative_prompt?: string // Things to avoid in the image
+    strength?: number // 0-1 for img2img modification strength
     // Qwen-Image-Edit specific settings
     outputFormat?: string // webp, jpg, png
     outputQuality?: number // 50-100 quality

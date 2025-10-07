@@ -36,32 +36,44 @@ export function useVideoGeneration(): UseVideoGenerationReturn {
    * Upload a file to Replicate and return the URL
    */
   const uploadFileToReplicate = async (url: string, filename: string): Promise<string> => {
-    // If it's already a Replicate URL or external URL, return as-is
-    if (url.startsWith('https') && !url.startsWith('blob:')) {
-      return url
+    try {
+      // If it's already a Replicate URL or external URL, return as-is
+      if (url.startsWith('https://api.replicate.com') || (url.startsWith('https') && !url.startsWith('data:') && !url.startsWith('blob:'))) {
+        return url
+      }
+
+      let file: File
+
+      if (url.startsWith('data:')) {
+        const response = await fetch(url)
+        const blob = await response.blob()
+        file = new File([blob], filename, { type: blob.type })
+      } else if (url.startsWith('blob:')) {
+        const response = await fetch(url)
+        const blob = await response.blob()
+        file = new File([blob], filename, { type: blob.type })
+      } else {
+        throw new Error(`Unsupported URL format for ${filename}: ${url}`)
+      }
+
+      // Upload to Replicate
+      const formData = new FormData()
+      formData.append('file', file)
+      const uploadResponse = await fetch('/api/upload-file', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!uploadResponse.ok) {
+        const error = await uploadResponse.json()
+        throw new Error(error.error || 'Failed to upload file to Replicate')
+      }
+
+      const { url: replicateUrl } = await uploadResponse.json()
+      return replicateUrl
+    } catch (error) {
+      throw error
     }
-
-    // Convert blob URL to File
-    const response = await fetch(url)
-    const blob = await response.blob()
-    const file = new File([blob], filename, { type: blob.type })
-
-    // Upload to Replicate
-    const formData = new FormData()
-    formData.append('file', file)
-
-    const uploadResponse = await fetch('/api/upload-file', {
-      method: 'POST',
-      body: formData,
-    })
-
-    if (!uploadResponse.ok) {
-      const error = await uploadResponse.json()
-      throw new Error(error.error || 'Failed to upload file to Replicate')
-    }
-
-    const { url: replicateUrl } = await uploadResponse.json()
-    return replicateUrl
   }
 
   const generateSingleVideo = async (

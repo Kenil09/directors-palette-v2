@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import { getImageDimensions } from "@/features/shot-creator/helpers/short-creator.helper"
 import { ShotCreatorReferenceImage } from "../types"
 import { useShotCreatorStore } from "../store/shot-creator.store"

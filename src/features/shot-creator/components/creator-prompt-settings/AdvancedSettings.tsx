@@ -5,12 +5,14 @@ import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
 import React, { useCallback, useMemo } from 'react'
 import { useShotCreatorSettings } from "../../hooks"
+import { useShotCreatorStore } from "../../store/shot-creator.store"
 import { getModelConfig, ModelId } from '@/config'
 import { Button } from "@/components/ui/button"
 import { Shuffle } from "lucide-react"
 
 const AdvancedSettings = () => {
     const { settings: shotCreatorSettings, updateSettings } = useShotCreatorSettings()
+    const { shotCreatorReferenceImages } = useShotCreatorStore()
     const selectedModel = shotCreatorSettings.model || 'nano-banana'
     const modelConfig = useMemo(() => getModelConfig(selectedModel as ModelId), [selectedModel])
 
@@ -48,6 +50,12 @@ const AdvancedSettings = () => {
     const supportsGoFast = useMemo(() =>
         modelConfig.supportedParameters.includes('goFast'),
         [modelConfig]
+    )
+
+    // Check if this is Qwen Image with img2img (has reference images)
+    const isQwenImageWithImg2Img = useMemo(() =>
+        selectedModel === 'qwen-image' && shotCreatorReferenceImages.length > 0,
+        [selectedModel, shotCreatorReferenceImages.length]
     )
 
     return (
@@ -185,6 +193,25 @@ const AdvancedSettings = () => {
                         checked={shotCreatorSettings.goFast !== false}
                         onCheckedChange={(checked) => updateSettings({ goFast: checked })}
                     />
+                </div>
+            )}
+
+            {/* Strength - for Qwen Image img2img mode */}
+            {isQwenImageWithImg2Img && (
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <Label className="text-sm text-slate-300">Img2Img Strength</Label>
+                        <span className="text-sm text-slate-400">{shotCreatorSettings.strength || 0.7}</span>
+                    </div>
+                    <Slider
+                        value={[shotCreatorSettings.strength || 0.7]}
+                        onValueChange={(value) => updateSettings({ strength: value[0] })}
+                        min={0.1}
+                        max={1.0}
+                        step={0.1}
+                        className="w-full"
+                    />
+                    <p className="text-xs text-slate-400">Higher = more creative changes (0.1-1.0)</p>
                 </div>
             )}
         </div>

@@ -302,6 +302,7 @@ export class ImageGenerationService {
       prompt: input.prompt,
     }
 
+    // Note: Qwen Image uses 'image' for img2img mode (optional)
     if (settings.image) {
       replicateInput.image = settings.image
     }
@@ -322,8 +323,13 @@ export class ImageGenerationService {
       replicateInput.aspect_ratio = settings.aspectRatio
     }
 
-    if (settings.numInferenceSteps) {
+    if (settings.numInferenceSteps !== undefined) {
       replicateInput.num_inference_steps = settings.numInferenceSteps
+    }
+
+    // Add negative prompt support
+    if (settings.negativePrompt) {
+      replicateInput.negative_prompt = settings.negativePrompt
     }
 
     if (settings.outputFormat) {

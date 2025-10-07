@@ -1,11 +1,11 @@
 import { create } from "zustand";
-import { toast } from "@/components/ui/use-toast";
-import { LibraryImageReference, LibraryImageReferences } from "../types/shot-library.types";
-import { getClient } from "@/lib/db/client";
+import { toast } from "@/hooks/use-toast";
+import { LibraryImageReference } from "../types/shot-library.types";
 import {
     updateReferenceCategory,
     deleteReference,
-    updateReferenceTags
+    updateReferenceTags,
+    getReferencesPaginated
 } from "../services/reference-library.service";
 import { Category } from "../components/CategorySelectDialog";
 
@@ -15,67 +15,82 @@ export interface ShotLibraryStore {
     libraryCategory: LibraryCategory;
     libraryItems: LibraryImageReference[];
     libraryLoading: boolean;
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    pageSize: number;
 
     setLibraryCategory: (category: LibraryCategory) => void;
     setLibraryItems: (items: LibraryImageReference[]) => void;
     setLibraryLoading: (loading: boolean) => void;
-    loadLibraryItems: () => Promise<void>;
+    setCurrentPage: (page: number) => void;
+    loadLibraryItems: (page?: number) => Promise<void>;
     updateItemCategory: (itemId: string, newCategory: string) => Promise<void>;
     deleteItem: (itemId: string) => Promise<void>;
     updateItemTags: (itemId: string, tags: string[]) => Promise<void>;
 }
 
-export const useLibraryStore = create<ShotLibraryStore>()((set) => ({
+export const useLibraryStore = create<ShotLibraryStore>()((set, get) => ({
     libraryCategory: 'all',
     libraryItems: [],
     libraryLoading: false,
-    // ---- Actions ----    
-    setLibraryCategory: (category: LibraryCategory) => set({ libraryCategory: category }),
+    currentPage: 1,
+    totalPages: 0,
+    totalItems: 0,
+    pageSize: 12,
+
+    // ---- Actions ----
+    setLibraryCategory: (category: LibraryCategory) => {
+        set({ libraryCategory: category, currentPage: 1 })
+        // Reload with new category
+        get().loadLibraryItems(1)
+    },
     setLibraryItems: (items: LibraryImageReference[]) => set({ libraryItems: items }),
     setLibraryLoading: (loading: boolean) => set({ libraryLoading: loading }),
+    setCurrentPage: (page: number) => {
+        set({ currentPage: page })
+        get().loadLibraryItems(page)
+    },
 
-    loadLibraryItems: async () => {
+    loadLibraryItems: async (page?: number) => {
+        const state = get()
+        if (state.libraryLoading) return
         set({ libraryLoading: true })
         try {
-            const supabase = await getClient()
+            const currentPage = page || state.currentPage
+            const category = state.libraryCategory
 
-            // Get user
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) throw new Error('User not authenticated')
-
-            // Fetch reference items with their gallery data
-            const { data: references, error } = await supabase
-                .from('reference')
-                .select(`
-                            id,
-                            category,
-                            tags,
-                            created_at,
-                            gallery (
-                                id,
-                                public_url,
-                                metadata
-                            )
-                        `)
-                .eq('gallery.user_id', user.id)
-                .order('created_at', { ascending: false })
+            // Use paginated service method
+            const { data: references, total, totalPages, error } = await getReferencesPaginated(
+                currentPage,
+                state.pageSize,
+                category
+            )
 
             if (error) throw error
 
-            // Transform to LibraryImageReference format
-            const items: LibraryImageReference[] = (references || []).map((ref: LibraryImageReferences) => ({
-                id: ref.id,
-                imageData: ref.gallery?.public_url || '',
-                preview: ref.gallery?.public_url || '',
-                tags: ref.tags || [],
-                category: ref.category as Category,
-                prompt: (ref.gallery?.metadata as { prompt?: string })?.prompt || '',
-                createdAt: new Date(ref.created_at),
-                source: 'generated' as const,
-                settings: ref.gallery?.metadata as LibraryImageReference['settings'],
-            }))
+            // Transform to LibraryImageReference format with optimized mapping
+            const items: LibraryImageReference[] = (references || []).map((ref) => {
+                const metadata = ref.gallery?.metadata as { prompt?: string } | undefined
+                return {
+                    id: ref.id,
+                    imageData: ref.gallery?.public_url || '',
+                    preview: ref.gallery?.public_url || '',
+                    tags: ref.tags || [],
+                    category: ref.category as Category,
+                    prompt: metadata?.prompt || '',
+                    createdAt: new Date(ref.created_at),
+                    source: 'generated' as const,
+                    settings: metadata as LibraryImageReference['settings'],
+                }
+            })
 
-            set({ libraryItems: items })
+            set({
+                libraryItems: items,
+                currentPage,
+                totalPages,
+                totalItems: total
+            })
         } catch (error) {
             console.error('Failed to load library:', error)
             toast({

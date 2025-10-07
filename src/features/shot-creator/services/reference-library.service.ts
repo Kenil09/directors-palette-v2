@@ -106,6 +106,88 @@ export async function getReferences(
 }
 
 /**
+ * Get references with pagination
+ */
+export async function getReferencesPaginated(
+    page: number,
+    pageSize: number,
+    category?: string
+): Promise<{ data: ReferenceWithGallery[] | null; total: number; totalPages: number; error: Error | null }> {
+    try {
+        const supabase = await getClient();
+
+        // Get user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('User not authenticated');
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+
+        // Build base query for data
+        let dataQuery = supabase
+            .from('reference')
+            .select(`
+                id,
+                gallery_id,
+                category,
+                tags,
+                created_at,
+                updated_at,
+                gallery!inner (
+                    id,
+                    public_url,
+                    metadata,
+                    user_id
+                )
+            `)
+            .eq('gallery.user_id', user.id)
+            .not('gallery.public_url', 'is', null)
+            .order('created_at', { ascending: false })
+            .range(from, to);
+
+        // Build count query with inner join
+        let countQuery = supabase
+            .from('reference')
+            .select('id, gallery!inner(user_id)', { count: 'exact', head: true })
+            .eq('gallery.user_id', user.id);
+
+        // Apply category filter if provided
+        if (category && category !== 'all') {
+            dataQuery = dataQuery.eq('category', category);
+            countQuery = countQuery.eq('category', category);
+        }
+
+        // Execute both queries in parallel
+        const [{ data, error: dataError }, { count, error: countError }] = await Promise.all([
+            dataQuery,
+            countQuery,
+        ]);
+
+        if (dataError || countError) {
+            throw dataError || countError;
+        }
+
+        const total = count || 0;
+        const totalPages = Math.ceil(total / pageSize);
+
+        return {
+            data: data as ReferenceWithGallery[],
+            total,
+            totalPages,
+            error: null
+        };
+    } catch (error) {
+        console.error('Error fetching paginated references:', error);
+        return {
+            data: null,
+            total: 0,
+            totalPages: 0,
+            error: error as Error
+        };
+    }
+}
+
+/**
  * Update reference category
  */
 export async function updateReferenceCategory(

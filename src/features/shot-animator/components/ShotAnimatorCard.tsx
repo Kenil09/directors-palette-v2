@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { ShotAnimationConfig } from '../types'
+import { CompactVideoCard } from './CompactVideoCard'
 
 interface ShotAnimatorCardProps {
   config: ShotAnimationConfig
@@ -25,7 +26,6 @@ export function ShotAnimatorCard({
   onUpdate,
   onRemove
 }: ShotAnimatorCardProps) {
-
   const handlePromptChange = (value: string) => {
     onUpdate({ ...config, prompt: value })
   }
@@ -54,6 +54,13 @@ export function ShotAnimatorCard({
 
   const handleRemoveLastFrameImage = () => {
     onUpdate({ ...config, lastFrameImage: undefined })
+  }
+
+  const handleDeleteGeneratedVideo = (galleryId: string) => {
+    onUpdate({
+      ...config,
+      generatedVideos: config.generatedVideos.filter(v => v.galleryId !== galleryId)
+    })
   }
 
   // File upload handler (placeholder - will be implemented with actual upload logic)
@@ -172,6 +179,16 @@ export function ShotAnimatorCard({
                     <ImageIcon className="w-8 h-8 text-slate-500" />
                   </label>
                 )}
+              </div>
+            )}
+
+            {/* Generated Videos */}
+            {config.generatedVideos && config.generatedVideos.length > 0 && (
+              <div>
+                <CompactVideoCard
+                  videos={config.generatedVideos}
+                  onDeleteVideo={handleDeleteGeneratedVideo}
+                />
               </div>
             )}
 

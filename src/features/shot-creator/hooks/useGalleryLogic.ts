@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useUnifiedGalleryStore } from '../store/unified-gallery-store'
 import type { GalleryImage } from '../types'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 
 export interface ChainData {
   chainId: string
@@ -13,7 +13,7 @@ export interface ChainData {
   endTime: number
 }
 
-export type ViewMode = 'grid' | 'chains'
+export type ViewMode = 'grid'
 
 export interface GalleryFilters {
   searchQuery: string
@@ -36,64 +36,37 @@ export function useGalleryLogic(
     fullscreenImage,
     getTotalImages,
     getTotalCreditsUsed,
-    getUniqueChains,
-    updateImageReference
+    updateImageReference,
+    totalPages: storeTotalPages,
+    currentPage: storeCurrentPage,
+    setCurrentPage: storeSetCurrentPage
   } = useUnifiedGalleryStore()
 
   // State
   const [selectedImages, setSelectedImages] = useState<string[]>([])
   const [filters, setFilters] = useState<GalleryFilters>({
     searchQuery: '',
-    currentPage: 1,
+    currentPage: storeCurrentPage,
     viewMode: 'grid'
   })
 
-  const IMAGES_PER_PAGE = 12
-
-  // Get chain data
-  const chains: ChainData[] = useMemo(() => getUniqueChains(), [getUniqueChains])
-
-  // Filter and pagination logic
-  const { filteredImages, paginatedImages, totalPages, filteredChains } = useMemo(() => {
-    if (filters.viewMode === 'chains') {
-      // Chain view logic
-      const filtered = filters.searchQuery.trim() === ''
-        ? chains
-        : chains.filter((chain: ChainData) =>
-            chain.images.some(image =>
-              image.prompt.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
-              image.chain?.stepPrompt.toLowerCase().includes(filters.searchQuery.toLowerCase())
-            )
-          )
-
-      return {
-        filteredImages: [],
-        paginatedImages: [],
-        totalPages: 1,
-        filteredChains: filtered
-      }
-    } else {
-      // Grid view logic
-      const filtered = filters.searchQuery.trim() === ''
-        ? images
-        : images.filter((image: GalleryImage) =>
-            image.prompt.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
-            image.model?.toLowerCase().includes(filters.searchQuery.toLowerCase())
-          )
-
-      const total = Math.ceil(filtered.length / IMAGES_PER_PAGE)
-      const startIndex = (filters.currentPage - 1) * IMAGES_PER_PAGE
-      const endIndex = startIndex + IMAGES_PER_PAGE
-      const paginated = filtered.slice(startIndex, endIndex)
-
-      return {
-        filteredImages: filtered,
-        paginatedImages: paginated,
-        totalPages: total,
-        filteredChains: []
-      }
+  // Filter logic (no local pagination)
+  const filteredImages = useMemo(() => {
+    // If search query is empty, return all images
+    if (filters.searchQuery.trim() === '') {
+      return images
     }
-  }, [images, chains, filters])
+
+    // Filter by search query
+    return images.filter((image: GalleryImage) =>
+      image.prompt.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+      image.model?.toLowerCase().includes(filters.searchQuery.toLowerCase())
+    )
+  }, [images, filters.searchQuery])
+
+  // Use images directly from store (already paginated by server)
+  const paginatedImages = images
+  const totalPages = storeTotalPages
 
   // Handlers
   const handleImageSelect = useCallback((imageUrl: string) => {
@@ -125,30 +98,79 @@ export function useGalleryLogic(
     try {
       const response = await fetch(url)
       const blob = await response.blob()
-      // Try to write image directly to clipboard
-      if (navigator.clipboard && (navigator.clipboard as { write: (items: ClipboardItem[]) => Promise<void> }).write) {
-        await (navigator.clipboard as { write: (items: ClipboardItem[]) => Promise<void> }).write([
-          new ClipboardItem({ [blob.type]: blob })
-        ])
-        toast({
-          title: "Copied",
-          description: "Image copied to clipboard"
-        })
-      } else {
-        // fallback: copy URL
+
+      // Check if clipboard API is available
+      if (!navigator.clipboard || !(navigator.clipboard as { write?: (items: ClipboardItem[]) => Promise<void> }).write) {
+        // Fallback: copy URL instead
         await navigator.clipboard.writeText(url)
         toast({
           title: "Copied URL",
           description: "Image URL copied to clipboard"
         })
+        return
       }
+
+      // Convert image to PNG if it's WebP or another unsupported format
+      if (blob.type === 'image/webp' || blob.type === 'image/avif') {
+        // Create an image element to convert the format
+        const img = new Image()
+        const objectUrl = URL.createObjectURL(blob)
+
+        await new Promise((resolve, reject) => {
+          img.onload = resolve
+          img.onerror = reject
+          img.src = objectUrl
+        })
+
+        // Create a canvas and draw the image
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) throw new Error('Could not get canvas context')
+
+        ctx.drawImage(img, 0, 0)
+        URL.revokeObjectURL(objectUrl)
+
+        // Convert canvas to PNG blob
+        const pngBlob = await new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob((b) => {
+            if (b) resolve(b)
+            else reject(new Error('Failed to convert to PNG'))
+          }, 'image/png')
+        })
+
+        // Copy PNG to clipboard
+        await (navigator.clipboard as { write: (items: ClipboardItem[]) => Promise<void> }).write([
+          new ClipboardItem({ 'image/png': pngBlob })
+        ])
+      } else {
+        // Copy directly if already in supported format
+        await (navigator.clipboard as { write: (items: ClipboardItem[]) => Promise<void> }).write([
+          new ClipboardItem({ [blob.type]: blob })
+        ])
+      }
+
+      toast({
+        title: "Copied",
+        description: "Image copied to clipboard"
+      })
     } catch (error) {
       console.error("Copy failed", error)
-      toast({
-        title: "Copy Failed",
-        description: "Unable to copy prompt to clipboard",
-        variant: "destructive"
-      })
+      // Fallback: try to copy URL instead
+      try {
+        await navigator.clipboard.writeText(url)
+        toast({
+          title: "Copied URL",
+          description: "Image URL copied to clipboard (image format not supported)"
+        })
+      } catch {
+        toast({
+          title: "Copy Failed",
+          description: "Unable to copy to clipboard",
+          variant: "destructive"
+        })
+      }
     }
   }
 
@@ -238,6 +260,7 @@ export function useGalleryLogic(
 
   const handlePageChange = (page: number) => {
     setFilters(prev => ({ ...prev, currentPage: page }))
+    storeSetCurrentPage(page)
   }
 
   return {
@@ -245,7 +268,6 @@ export function useGalleryLogic(
     images,
     filteredImages,
     paginatedImages,
-    chains: filteredChains,
     totalPages,
     selectedImages,
     filters,

@@ -28,6 +28,32 @@ export class VideoGalleryService {
   }
 
   /**
+   * Load video gallery items with pagination
+   */
+  static async loadUserVideosPaginated(
+    page: number,
+    pageSize: number
+  ): Promise<{ videos: GeneratedVideo[]; total: number; totalPages: number }> {
+    try {
+      const result = await GalleryService.loadUserGalleryPaginated('video', page, pageSize)
+
+      // Transform database records to GeneratedVideo format
+      const videos: GeneratedVideo[] = result.items
+        .map((item) => this.transformToGeneratedVideo(item))
+        .filter((video): video is GeneratedVideo => video !== null)
+
+      return {
+        videos,
+        total: result.total,
+        totalPages: result.totalPages,
+      }
+    } catch (error) {
+      console.error('Failed to load paginated video gallery:', error)
+      return { videos: [], total: 0, totalPages: 0 }
+    }
+  }
+
+  /**
    * Load all image gallery items for the current user
    */
   static async loadUserImages() {
@@ -37,6 +63,21 @@ export class VideoGalleryService {
     } catch (error) {
       console.error('Failed to load image gallery:', error)
       return []
+    }
+  }
+
+  /**
+   * Load image gallery items with pagination
+   */
+  static async loadUserImagesPaginated(
+    page: number,
+    pageSize: number
+  ): Promise<{ items: GalleryRow[]; total: number; totalPages: number }> {
+    try {
+      return await GalleryService.loadUserGalleryPaginated('image', page, pageSize)
+    } catch (error) {
+      console.error('Failed to load paginated image gallery:', error)
+      return { items: [], total: 0, totalPages: 0 }
     }
   }
 

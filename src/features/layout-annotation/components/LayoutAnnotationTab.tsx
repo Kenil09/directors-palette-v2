@@ -12,7 +12,7 @@ import {
     useIncomingImageSync
 } from '../hooks'
 import { useLayoutAnnotationStore } from "../store"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import { FabricCanvas, FabricCanvasRef } from "./canvas-board"
 import { CanvasSettings, CanvasToolbar } from "./canvas-settings"
 import { CanvasExporter } from "./canvas-export"

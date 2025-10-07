@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import Image from 'next/image'
-import { ImageIcon, CheckCircle2 } from 'lucide-react'
+import { ImageIcon, CheckCircle2, List, Grid3x3 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Pagination } from "@/features/shot-creator"
 
 interface GalleryImage {
   id: string
@@ -28,15 +30,22 @@ interface GallerySelectModalProps {
   onClose: () => void
   onSelect: (images: GalleryImage[]) => void
   galleryImages: GalleryImage[]
+  currentPage: number
+  totalPages: number  
+  onPageChange: (page: number) => Promise<void>
 }
 
 export function GallerySelectModal({
   isOpen,
   onClose,
   onSelect,
-  galleryImages
+  galleryImages,
+  currentPage,
+  totalPages,
+  onPageChange,
 }: GallerySelectModalProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid') 
 
   const handleToggleImage = (id: string) => {
     setSelectedIds(prev => {
@@ -51,10 +60,22 @@ export function GallerySelectModal({
   }
 
   const handleSelectAll = () => {
-    if (selectedIds.size === galleryImages.length) {
-      setSelectedIds(new Set())
+    const allCurrentPageSelected = galleryImages.every(img => selectedIds.has(img.id))
+
+    if (allCurrentPageSelected) {
+      // Deselect all on current page
+      setSelectedIds(prev => {
+        const newSet = new Set(prev)
+        galleryImages.forEach(img => newSet.delete(img.id))
+        return newSet
+      })
     } else {
-      setSelectedIds(new Set(galleryImages.map(img => img.id)))
+      // Select all on current page
+      setSelectedIds(prev => {
+        const newSet = new Set(prev)
+        galleryImages.forEach(img => newSet.add(img.id))
+        return newSet
+      })
     }
   }
 
@@ -85,16 +106,38 @@ export function GallerySelectModal({
           <div className="flex items-center gap-3">
             <Checkbox
               id="select-all"
-              checked={selectedIds.size === galleryImages.length && galleryImages.length > 0}
+              checked={galleryImages.length > 0 && galleryImages.every(img => selectedIds.has(img.id))}
               onCheckedChange={handleSelectAll}
             />
             <label htmlFor="select-all" className="text-sm text-slate-300 cursor-pointer">
               Select All
             </label>
           </div>
-          <Badge variant="outline" className="border-purple-600 text-purple-400">
-            {selectedIds.size} selected
-          </Badge>
+          {selectedIds.size > 1 && (
+            <Badge variant="outline" className="border-purple-600 text-purple-400">
+              {selectedIds.size} selected
+            </Badge>
+          )}
+          <div className="my-2 flex justify-end">
+            <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'grid' | 'list')}>
+              <TabsList className="bg-slate-800 border border-slate-700 rounded-lg h-9">
+                <TabsTrigger
+                  value="grid"
+                  className="flex items-center gap-2 px-3 data-[state=active]:bg-purple-600 data-[state=active]:text-white text-slate-300"
+                >
+                  <Grid3x3 className="w-4 h-4" />
+                  Grid
+                </TabsTrigger>
+                <TabsTrigger
+                  value="list"
+                  className="flex items-center gap-2 px-3 data-[state=active]:bg-purple-600 data-[state=active]:text-white text-slate-300"
+                >
+                  <List className="w-4 h-4" />
+                  List
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </div>
 
         {/* Gallery Grid */}
@@ -104,51 +147,34 @@ export function GallerySelectModal({
               <ImageIcon className="w-16 h-16 mb-4" />
               <p>No images in gallery</p>
             </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-4">
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-3 gap-4 mt-4">
               {galleryImages.map((image) => {
                 const isSelected = selectedIds.has(image.id)
                 return (
                   <div
                     key={image.id}
                     onClick={() => handleToggleImage(image.id)}
-                    className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
-                      isSelected
-                        ? 'border-purple-500 ring-2 ring-purple-500/30'
-                        : 'border-slate-700 hover:border-slate-600'
-                    }`}
+                    className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${isSelected
+                      ? 'border-purple-500 ring-2 ring-purple-500/30'
+                      : 'border-slate-700 hover:border-slate-600'
+                      }`}
                   >
-                    {/* Image */}
                     <div className="relative aspect-square bg-slate-800">
-                      <Image
-                        src={image.url}
-                        alt={image.name}
-                        fill
-                        className="object-cover"
+                      <Image src={image.url} alt={image.name} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 53vw" className="object-cover" />
+                      <div
+                        className={`absolute inset-0 transition-opacity ${isSelected ? 'bg-purple-500/20' : 'bg-black/0 group-hover:bg-black/20'
+                          }`}
                       />
-
-                      {/* Overlay */}
-                      <div className={`absolute inset-0 transition-opacity ${
-                        isSelected ? 'bg-purple-500/20' : 'bg-black/0 group-hover:bg-black/20'
-                      }`} />
-
-                      {/* Selection Indicator */}
                       {isSelected && (
                         <div className="absolute top-2 right-2 bg-purple-500 rounded-full p-1">
                           <CheckCircle2 className="w-4 h-4 text-white" />
                         </div>
                       )}
-
-                      {/* Checkbox */}
                       <div className="absolute top-2 left-2">
-                        <Checkbox
-                          checked={isSelected}
-                          className="bg-white/90"
-                        />
+                        <Checkbox checked={isSelected} className="bg-white/90" />
                       </div>
                     </div>
-
-                    {/* Image Info */}
                     <div className="p-2 bg-slate-800/90">
                       <p className="text-xs text-slate-300 truncate">{image.name}</p>
                     </div>
@@ -156,8 +182,46 @@ export function GallerySelectModal({
                 )
               })}
             </div>
+          ) : (
+            <div className="flex flex-col gap-2 mt-4">
+              {galleryImages.map((image) => {
+                const isSelected = selectedIds.has(image.id)
+                return (
+                  <div
+                    key={image.id}
+                    onClick={() => handleToggleImage(image.id)}
+                    className={`flex items-center gap-3 p-2 rounded-md border-2 cursor-pointer transition-all ${isSelected
+                      ? 'border-purple-500 bg-slate-800/80'
+                      : 'border-slate-700 hover:border-slate-600'
+                      }`}
+                  >
+                    <div className="relative w-16 h-16 rounded overflow-hidden bg-slate-800 flex-shrink-0">
+                      <Image src={image.url} alt={image.name} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 53vw" className="object-cover" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-slate-200">{image.name}</p>
+                      <p className="text-xs text-slate-500">
+                        {new Date(image.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Checkbox checked={isSelected} className="bg-white/90" />
+                  </div>
+                )
+              })}
+            </div>
           )}
         </ScrollArea>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-4">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={onPageChange}
+            />
+          </div>
+        )}
 
         <DialogFooter>
           <Button

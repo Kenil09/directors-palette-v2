@@ -5,6 +5,15 @@
 // Available animation models
 export type AnimationModel = 'seedance-lite' | 'seedance-pro'
 
+// Generated video entry for shot animator
+export interface ShotGeneratedVideo {
+  galleryId: string
+  videoUrl?: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  createdAt: Date
+  error?: string
+}
+
 // Shot configuration for animation
 export interface ShotAnimationConfig {
   id: string
@@ -15,6 +24,7 @@ export interface ShotAnimationConfig {
   referenceImages: string[]
   lastFrameImage?: string
   includeInBatch: boolean
+  generatedVideos: ShotGeneratedVideo[] // Array of generated videos (supports multiple generations)
 }
 
 // Model-specific settings

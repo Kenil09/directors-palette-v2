@@ -43,14 +43,16 @@ export function ImageCard({
   return (
     <div className="relative group rounded-lg overflow-hidden bg-slate-800 border border-slate-700 transition-all hover:border-purple-600/50">
       {/* Main image - show in native aspect ratio */}
-      <Image
-        src={image.url}
-        alt={image.prompt?.slice(0, 50) || 'Generated image'}
-        width={80}
-        height={80}
-        className="w-full h-auto cursor-zoom-in"
-        onClick={onZoom}
-      />
+      <div className="w-full aspect-square relative">
+        <Image
+          src={image.url}
+          alt={image.prompt?.slice(0, 50) || 'Generated image'}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 53vw"
+          className="object-cover cursor-zoom-in"
+          onClick={onZoom}
+        />
+      </div>
 
       {/* Model icon badge */}
       <ModelBadge model={image.model} />

@@ -33,6 +33,30 @@ export class GalleryService {
     }
 
     /**
+     * Load gallery images with pagination
+     */
+    static async loadUserGalleryPaginated(
+        page: number,
+        pageSize: number
+    ): Promise<{ images: GeneratedImage[]; total: number; totalPages: number }> {
+        try {
+            const result = await UnifiedGalleryService.loadUserGalleryPaginated('image', page, pageSize)
+
+            // Transform database records to GeneratedImage format
+            const images: GeneratedImage[] = result.items.map(item => this.transformToGeneratedImage(item))
+
+            return {
+                images,
+                total: result.total,
+                totalPages: result.totalPages
+            }
+        } catch (error) {
+            console.error('Failed to load gallery:', error)
+            return { images: [], total: 0, totalPages: 0 }
+        }
+    }
+
+    /**
      * Delete a gallery image (database entry and storage file)
      */
     static async deleteImage(imageId: string): Promise<{ success: boolean; error?: string }> {

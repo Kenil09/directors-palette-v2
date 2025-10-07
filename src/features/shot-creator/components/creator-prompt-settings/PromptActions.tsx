@@ -78,6 +78,18 @@ const PromptActions = ({ textareaRef }: { textareaRef: React.RefObject<HTMLTextA
                     baseSettings.numInferenceSteps = shotCreatorSettings.num_inference_steps
                 }
                 if (shotCreatorSettings.goFast !== undefined) baseSettings.goFast = shotCreatorSettings.goFast
+
+                // For Qwen Image, use first reference image as img2img input if available
+                if (shotCreatorReferenceImages.length > 0) {
+                    const img2imgImage = shotCreatorReferenceImages[0]?.url || shotCreatorReferenceImages[0]?.preview
+                    if (img2imgImage) {
+                        baseSettings.image = img2imgImage
+                        // Set strength for img2img (optional, defaults to moderate modification)
+                        if (shotCreatorSettings.strength !== undefined) {
+                            baseSettings.strength = shotCreatorSettings.strength
+                        }
+                    }
+                }
                 break
             case 'qwen-image-edit':
                 // For editing mode, first reference image is the image to edit
@@ -108,11 +120,14 @@ const PromptActions = ({ textareaRef }: { textareaRef: React.RefObject<HTMLTextA
             // Build model-specific settings
             const modelSettings = buildModelSettings()
 
+            // For Qwen Image, don't pass reference images since we use img2img via modelSettings
+            const finalReferenceUrls = model === 'qwen-image' ? [] : referenceUrls
+
             // Call the generation API
             await generateImage(
                 model,
                 shotCreatorPrompt,
-                referenceUrls,
+                finalReferenceUrls,
                 modelSettings
             )
         }

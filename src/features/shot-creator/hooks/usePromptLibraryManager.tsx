@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { SavedPrompt, usePromptLibraryStore } from "../store/prompt-library-store"
 import { getClient } from "@/lib/db/client"
 

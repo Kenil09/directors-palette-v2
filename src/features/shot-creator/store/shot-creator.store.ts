@@ -173,6 +173,7 @@ export const useShotCreatorStore = create<ShotCreatorStore>()((set) => ({
                 prompt: "",
                 referenceImages: [],
                 includeInBatch: true,
+                generatedVideos: []
             };
 
             // Add to shot animator store

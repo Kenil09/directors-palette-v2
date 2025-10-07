@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import type { GalleryImage } from '../types'
 import { GalleryService } from '../services/gallery.service'
 
 export interface GeneratedImage {
@@ -30,15 +29,6 @@ export interface GeneratedImage {
   width?: number
   height?: number
 
-  // NEW: Chain metadata for pipeline generation
-  chain?: {
-    chainId: string
-    stepNumber: number
-    totalSteps: number
-    stepPrompt: string
-    isFinal: boolean
-  }
-
   // NEW: Persistence metadata
   persistence: {
     isPermanent: boolean // True if stored in Supabase Storage
@@ -56,6 +46,12 @@ interface UnifiedGalleryState {
   selectedImage: string | null
   fullscreenImage: GeneratedImage | null
 
+  // Pagination state
+  currentPage: number
+  totalPages: number
+  totalItems: number
+  pageSize: number
+
   // Actions
   addImage: (image: Omit<GeneratedImage, 'id' | 'metadata'> & {
     creditsUsed: number
@@ -66,24 +62,13 @@ interface UnifiedGalleryState {
     error?: string
   }) => void
   loadImages: (images: GeneratedImage[]) => void
+  loadImagesPaginated: (images: GeneratedImage[], total: number, totalPages: number) => void
+  setCurrentPage: (page: number) => void
   removeImage: (imageIdOrUrl: string) => void
-  setSelectedImage: (imageId: string | null) => void
   setFullscreenImage: (image: GeneratedImage | null) => void
-  clearAllImages: () => void
   updateImageReference: (imageId: string, reference: string) => void
 
   // Filtering
-  getImagesBySource: (source: GeneratedImage['source']) => GeneratedImage[]
-  getImagesByTag: (tag: string) => GeneratedImage[]
-  getChainImages: (chainId: string) => GeneratedImage[]
-  getUniqueChains: () => Array<{
-    chainId: string
-    images: GalleryImage[]
-    totalCredits: number
-    startTime: number
-    endTime: number
-  }>
-  getImageByReference: (reference: string) => GeneratedImage | undefined
   getAllReferences: () => string[]
 
   // Utilities
@@ -97,191 +82,130 @@ export const useUnifiedGalleryStore = create<UnifiedGalleryState>()((set, get) =
   selectedImage: null,
   fullscreenImage: null,
 
-      addImage: (imageData) => {
-        const newImage: GeneratedImage = {
-          ...imageData,
-          id: `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          metadata: {
-            createdAt: new Date().toISOString(),
-            creditsUsed: imageData.creditsUsed
-          },
-          timestamp: Date.now(), // NEW: Add timestamp for GalleryImage compatibility
-          persistence: {
-            isPermanent: imageData.isPermanent ?? false,
-            temporaryUrl: imageData.temporaryUrl,
-            storagePath: imageData.storagePath,
-            fileSize: imageData.fileSize,
-            downloadedAt: imageData.isPermanent ? new Date().toISOString() : undefined,
-            error: imageData.error
-          }
-        }
+  // Pagination state
+  currentPage: 1,
+  totalPages: 0,
+  totalItems: 0,
+  pageSize: 12,
 
-        set((state) => ({
-          images: [newImage, ...state.images],
-          recentImages: [newImage, ...state.recentImages.slice(0, 9)]
-        }))
-
-        // Log persistence status for monitoring
-        if (newImage.persistence.isPermanent) {
-          console.log('✅ Gallery: Added permanently stored image', {
-            id: newImage.id,
-            url: newImage.url,
-            size: newImage.persistence.fileSize
-          });
-        } else {
-          console.warn('⚠️ Gallery: Added temporary image (will expire)', {
-            id: newImage.id,
-            temporaryUrl: newImage.url,
-            error: newImage.persistence.error
-          });
-        }
+  addImage: (imageData) => {
+    const newImage: GeneratedImage = {
+      ...imageData,
+      id: `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      metadata: {
+        createdAt: new Date().toISOString(),
+        creditsUsed: imageData.creditsUsed
       },
-
-      loadImages: (images) => {
-        set({
-          images: images,
-          recentImages: images.slice(0, 10)
-        })
-      },
-
-      removeImage: async (imageIdOrUrl) => {
-        // Find the image to get its ID
-        const state = useUnifiedGalleryStore.getState()
-        const image = state.images.find(img => img.id === imageIdOrUrl || img.url === imageIdOrUrl)
-
-        if (image) {
-          // Delete from Supabase (database and storage)
-          const result = await GalleryService.deleteImage(image.id)
-
-          if (!result.success) {
-            console.error('Failed to delete image:', result.error)
-            return
-          }
-        }
-
-        // Remove from store
-        set((state) => ({
-          images: state.images.filter(img =>
-            img.id !== imageIdOrUrl && img.url !== imageIdOrUrl
-          ),
-          selectedImage: state.selectedImage === imageIdOrUrl ? null : state.selectedImage,
-          fullscreenImage: (state.fullscreenImage?.id === imageIdOrUrl || state.fullscreenImage?.url === imageIdOrUrl) ? null : state.fullscreenImage,
-          recentImages: state.recentImages.filter(img => img.id !== imageIdOrUrl && img.url !== imageIdOrUrl)
-        }))
-      },
-
-      setSelectedImage: (imageId) => {
-        set({ selectedImage: imageId })
-      },
-
-      setFullscreenImage: (image) => {
-        set({ fullscreenImage: image })
-      },
-
-      clearAllImages: () => {
-        set({ images: [], selectedImage: null, fullscreenImage: null, recentImages: [] })
-      },
-
-      updateImageReference: (imageId, reference) => {
-        set((state) => ({
-          images: state.images.map(img =>
-            img.id === imageId
-              ? { ...img, reference: reference.startsWith('@') ? reference : `@${reference}` }
-              : img
-          )
-        }))
-      },
-
-      getImagesBySource: (source) => {
-        return get().images.filter(img => img.source === source)
-      },
-
-      getImagesByTag: (tag) => {
-        return get().images.filter(img => img.tags.includes(tag))
-      },
-
-      getChainImages: (chainId) => {
-        return get().images
-          .filter(img => img.chain?.chainId === chainId)
-          .sort((a, b) => (a.chain?.stepNumber || 0) - (b.chain?.stepNumber || 0))
-      },
-
-      getUniqueChains: () => {
-        const chains = new Map<string, { chainId: string; totalSteps: number; images: GeneratedImage[] }>()
-
-        get().images.forEach(img => {
-          if (img.chain) {
-            if (!chains.has(img.chain.chainId)) {
-              chains.set(img.chain.chainId, {
-                chainId: img.chain.chainId,
-                totalSteps: img.chain.totalSteps,
-                images: []
-              })
-            }
-            chains.get(img.chain.chainId)!.images.push(img)
-          }
-        })
-
-        // Sort images within each chain by step number
-        chains.forEach(chain => {
-          chain.images.sort((a, b) => (a.chain?.stepNumber || 0) - (b.chain?.stepNumber || 0))
-        })
-
-        return Array.from(chains.values()).map(chain => {
-          // Calculate total credits
-          const totalCredits = chain.images.reduce((total, img) => total + img.metadata.creditsUsed, 0)
-
-          // Calculate start and end times
-          const timestamps = chain.images.map(img => new Date(img.metadata.createdAt).getTime()).sort((a, b) => a - b)
-          const startTime = timestamps[0] || 0
-          const endTime = timestamps[timestamps.length - 1] || 0
-
-          // Transform images to GalleryImage format
-          const galleryImages = chain.images.map(img => ({
-            url: img.url,
-            prompt: img.prompt,
-            timestamp: img.timestamp, // Use the timestamp property we just added
-            model: img.model,
-            creditsUsed: img.metadata.creditsUsed,
-            source: img.source,
-            reference: img.reference,
-            chain: img.chain ? {
-              chainId: img.chain.chainId,
-              stepNumber: img.chain.stepNumber,
-              stepPrompt: img.chain.stepPrompt
-            } : undefined
-          }))
-
-          return {
-            chainId: chain.chainId,
-            images: galleryImages,
-            totalCredits,
-            startTime,
-            endTime
-          }
-        }).sort((a, b) => {
-          // Sort chains by the creation time of their first image
-          return b.startTime - a.startTime
-        })
-      },
-
-      getImageByReference: (reference) => {
-        const searchRef = reference.startsWith('@') ? reference : `@${reference}`
-        return get().images.find(img => img.reference === searchRef)
-      },
-
-      getAllReferences: () => {
-        const refs = get().images
-          .filter(img => img.reference)
-          .map(img => img.reference!)
-        return [...new Set(refs)] // Return unique references
-      },
-
-      getTotalImages: () => {
-        return get().images.length
-      },
-
-      getTotalCreditsUsed: () => {
-        return get().images.reduce((total, img) => total + img.metadata.creditsUsed, 0)
+      timestamp: Date.now(), // NEW: Add timestamp for GalleryImage compatibility
+      persistence: {
+        isPermanent: imageData.isPermanent ?? false,
+        temporaryUrl: imageData.temporaryUrl,
+        storagePath: imageData.storagePath,
+        fileSize: imageData.fileSize,
+        downloadedAt: imageData.isPermanent ? new Date().toISOString() : undefined,
+        error: imageData.error
       }
+    }
+
+    set((state) => ({
+      images: [newImage, ...state.images],
+      recentImages: [newImage, ...state.recentImages.slice(0, 9)]
+    }))
+
+    // Log persistence status for monitoring
+    if (newImage.persistence.isPermanent) {
+      console.log('✅ Gallery: Added permanently stored image', {
+        id: newImage.id,
+        url: newImage.url,
+        size: newImage.persistence.fileSize
+      });
+    } else {
+      console.warn('⚠️ Gallery: Added temporary image (will expire)', {
+        id: newImage.id,
+        temporaryUrl: newImage.url,
+        error: newImage.persistence.error
+      });
+    }
+  },
+
+  loadImages: (images) => {
+    set({
+      images: images,
+      recentImages: images.slice(0, 10)
+    })
+  },
+
+  loadImagesPaginated: (images, total, totalPages) => {
+    set({
+      images: images,
+      recentImages: images.slice(0, 10),
+      totalItems: total,
+      totalPages: totalPages
+    })
+  },
+
+  setCurrentPage: (page) => {
+    set({ currentPage: page })
+  },
+
+  removeImage: async (imageIdOrUrl) => {
+    // Find the image to get its ID
+    const state = useUnifiedGalleryStore.getState()
+    const image = state.images.find(img => img.id === imageIdOrUrl || img.url === imageIdOrUrl)
+
+    if (image) {
+      // Delete from Supabase (database and storage)
+      const result = await GalleryService.deleteImage(image.id)
+
+      if (!result.success) {
+        console.error('Failed to delete image:', result.error)
+        return
+      }
+    }
+
+    // Remove from store
+    set((state) => ({
+      images: state.images.filter(img =>
+        img.id !== imageIdOrUrl && img.url !== imageIdOrUrl
+      ),
+      selectedImage: state.selectedImage === imageIdOrUrl ? null : state.selectedImage,
+      fullscreenImage: (state.fullscreenImage?.id === imageIdOrUrl || state.fullscreenImage?.url === imageIdOrUrl) ? null : state.fullscreenImage,
+      recentImages: state.recentImages.filter(img => img.id !== imageIdOrUrl && img.url !== imageIdOrUrl)
+    }))
+  },
+
+  setFullscreenImage: (image) => {
+    set({ fullscreenImage: image })
+  },
+
+  updateImageReference: (imageId, reference) => {
+    set((state) => ({
+      images: state.images.map(img =>
+        img.id === imageId
+          ? { ...img, reference: reference.startsWith('@') ? reference : `@${reference}` }
+          : img
+      )
+    }))
+  },
+
+
+
+
+
+
+
+  getAllReferences: () => {
+    const refs = get().images
+      .filter(img => img.reference)
+      .map(img => img.reference!)
+    return [...new Set(refs)] // Return unique references
+  },
+
+  getTotalImages: () => {
+    return get().images.length
+  },
+
+  getTotalCreditsUsed: () => {
+    return get().images.reduce((total, img) => total + img.metadata.creditsUsed, 0)
+  }
 }))

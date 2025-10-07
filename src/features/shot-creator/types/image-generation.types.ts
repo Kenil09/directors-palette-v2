@@ -44,6 +44,7 @@ export interface QwenImageSettings {
   strength?: number
   aspectRatio?: string
   numInferenceSteps?: number
+  negativePrompt?: string // Things to avoid in the image
   outputFormat?: 'webp' | 'jpg' | 'png'
   goFast?: boolean
 }
@@ -110,6 +111,7 @@ export interface QwenImageInput {
   strength?: number
   aspect_ratio?: string
   num_inference_steps?: number
+  negative_prompt?: string
   output_format?: string
   go_fast?: boolean
 }

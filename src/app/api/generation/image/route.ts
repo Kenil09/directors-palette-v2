@@ -80,15 +80,95 @@ export async function POST(request: NextRequest) {
 
     // Get model identifier
     const replicateModelId = ImageGenerationService.getReplicateModelId(model as ImageModel);
+    console.log('Using model:', replicateModelId);
+    console.log('Input data:', JSON.stringify(replicateInput, null, 2));
 
     // Create Replicate prediction with webhook
     const webhookUrl = `${process.env.WEBHOOK_URL}/api/webhooks/replicate`;
-    const prediction = await replicate.predictions.create({
-      model: replicateModelId,
-      input: replicateInput,
-      webhook: webhookUrl,
-      webhook_events_filter: ['completed'],
-    });
+    console.log('Webhook URL:', webhookUrl);
+
+    let prediction;
+    try {
+      console.log('Creating prediction with model:', replicateModelId);
+      console.log('Input payload:', JSON.stringify({
+        model: replicateModelId,
+        input: replicateInput,
+        webhook: webhookUrl,
+        webhook_events_filter: ['completed'],
+      }, null, 2));
+
+      prediction = await replicate.predictions.create({
+        model: replicateModelId,
+        input: replicateInput,
+        webhook: webhookUrl,
+        webhook_events_filter: ['completed'],
+      });
+
+      console.log('Prediction created successfully:', prediction.id);
+    } catch (replicateError: unknown) {
+      const error = replicateError as {
+        message?: string;
+        response?: {
+          status?: number;
+          statusText?: string;
+          data?: unknown;
+        };
+      };
+      console.error('Replicate API error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+      });
+
+      // Check if this is a model not found error (404) or bad gateway (502)
+      if (error.response?.status === 404) {
+        return NextResponse.json(
+          {
+            error: 'Model not found',
+            details: `The model '${replicateModelId}' is not available on Replicate. Please check if the model name is correct or if it has been deprecated.`,
+            model: replicateModelId,
+            input: replicateInput
+          },
+          { status: 404 }
+        );
+      }
+
+      if (error.response?.status === 502) {
+        return NextResponse.json(
+          {
+            error: 'Model temporarily unavailable',
+            details: `The model '${replicateModelId}' is currently experiencing issues (502 Bad Gateway). This could be temporary. Please try again later or contact support if the issue persists.`,
+            model: replicateModelId,
+            input: replicateInput,
+            suggestions: [
+              'Try again in a few minutes',
+              'Check if the model name is correct on Replicate',
+              'Consider using a different image editing model if available',
+              'Verify your Replicate API token has sufficient permissions'
+            ]
+          },
+          { status: 502 }
+        );
+      }
+
+      // Provide general error with suggestions
+      return NextResponse.json(
+        {
+          error: 'Replicate API error',
+          details: error.message || 'Unknown error occurred',
+          model: replicateModelId,
+          input: replicateInput,
+          suggestions: [
+            'Check your internet connection',
+            'Verify your Replicate API token',
+            'Ensure the model name is correct',
+            'Try using a different model if available'
+          ]
+        },
+        { status: 500 }
+      );
+    }
 
     // Build metadata for storage
     const metadata = ImageGenerationService.buildMetadata({

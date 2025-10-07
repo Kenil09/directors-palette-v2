@@ -2,13 +2,16 @@
 
 import React from 'react'
 import Image from 'next/image'
-import { Image as ImageIcon, Film, Trash2 } from 'lucide-react'
+import { Image as ImageIcon, Film, Trash2, Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { ShotAnimationConfig } from '../types'
 import { Textarea } from "@/components/ui/textarea"
+import { CompactVideoCard } from './CompactVideoCard'
+import { VideoGalleryService } from '../services/gallery.service'
+import { toast } from '@/hooks/use-toast'
 
 interface CompactShotCardProps {
   config: ShotAnimationConfig
@@ -33,9 +36,41 @@ export function CompactShotCard({
     onUpdate({ ...config, includeInBatch: !config.includeInBatch })
   }
 
+  const handleDeleteGeneratedVideo = async (galleryId: string) => {
+    try {
+      // Delete from Supabase
+      const result = await VideoGalleryService.deleteVideo(galleryId)
+
+      if (result.success) {
+        // Update local state to remove the video
+        onUpdate({
+          ...config,
+          generatedVideos: config.generatedVideos.filter(v => v.galleryId !== galleryId)
+        })
+        toast({
+          title: 'Video Deleted',
+          description: 'The video has been successfully deleted.',
+        })
+      } else {
+        toast({
+          title: 'Delete Failed',
+          description: result.error || 'Failed to delete video. Please try again.',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
+      console.error('Error deleting video:', error)
+      toast({
+        title: 'Delete Error',
+        description: 'An unexpected error occurred while deleting the video.',
+        variant: 'destructive',
+      })
+    }
+  }
+
   return (
     <Card
-      className={`bg-slate-800/50 border-2 transition-all hover:border-slate-600 ${config.includeInBatch ? 'border-purple-500' : 'border-slate-700'
+      className={`h-full flex flex-col bg-slate-800/50 border-2 transition-all hover:border-slate-600 ${config.includeInBatch ? 'border-purple-500' : 'border-slate-700'
         }`}
     >
       {/* Image with Checkbox Overlay */}
@@ -43,7 +78,8 @@ export function CompactShotCard({
         <Image
           src={config.imageUrl}
           alt={config.imageName}
-          fill
+          width={400}
+          height={400}
           className="object-cover"
         />
 
@@ -52,7 +88,6 @@ export function CompactShotCard({
           <div className="absolute inset-0 bg-purple-500/10" />
         )}
 
-        {/* Checkbox */}
         <div className="absolute top-2 left-2 z-10">
           <Checkbox
             checked={config.includeInBatch}
@@ -60,10 +95,30 @@ export function CompactShotCard({
             className="bg-white/90 border-white"
           />
         </div>
+        {/* Video Status Badge - Top Right */}
+        {config.generatedVideos && config.generatedVideos.length > 0 && (
+          <div className="absolute top-2 right-2 z-10">
+            {config.generatedVideos.some(v => v.status === 'processing') && (
+              <Badge className="bg-purple-600 text-white text-xs flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Processing
+              </Badge>
+            )}
+            {config.generatedVideos.every(v => v.status === 'completed') && (
+              <Badge className="bg-green-600 text-white text-xs">
+                {config.generatedVideos.length} Video{config.generatedVideos.length > 1 ? 's' : ''}
+              </Badge>
+            )}
+            {config.generatedVideos.some(v => v.status === 'failed') && (
+              <Badge className="bg-red-600 text-white text-xs">
+                Failed
+              </Badge>
+            )}
+          </div>
+        )}
 
-        {/* Action Buttons - Top Right */}
-        <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {/* Delete Button */}
+        {/* Delete Button - Bottom Right (only show on hover) */}
+        <div className="absolute bottom-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
           <Button
             size="icon"
             variant="ghost"
@@ -88,15 +143,15 @@ export function CompactShotCard({
           className="bg-slate-700 text-white text-xs min-h-[100px] resize-none"
         />
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2">
           {/* Reference Images Button */}
-          <div>
+          <div className="w-1/2">
             {maxReferenceImages > 0 && (
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={onManageReferences}
-                className="h-7 px-2 text-xs bg-slate-700/50 hover:bg-slate-700 text-purple-400 border border-purple-500/30"
+                className="h-7 px-2 w-full text-xs bg-slate-700/50 hover:bg-slate-700 text-purple-400 border border-purple-500/30"
               >
                 <ImageIcon className="w-3 h-3 mr-1" />
                 Refs
@@ -110,13 +165,13 @@ export function CompactShotCard({
           </div>
 
           {/* Last Frame Button */}
-          <div>
+          <div className="w-1/2">
             {supportsLastFrame && (
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={onManageLastFrame}
-                className="h-7 px-2 text-xs bg-slate-700/50 hover:bg-slate-700 text-purple-400 border border-purple-500/30"
+                className="h-7 px-2 w-full text-xs bg-slate-700/50 hover:bg-slate-700 text-purple-400 border border-purple-500/30"
               >
                 <Film className="w-3 h-3" />
                 Last Frame
@@ -127,6 +182,16 @@ export function CompactShotCard({
             )}
           </div>
         </div>
+
+        {/* Generated Videos */}
+        {config.generatedVideos && config.generatedVideos.length > 0 && (
+          <div className="mt-2">
+            <CompactVideoCard
+              videos={config.generatedVideos}
+              onDeleteVideo={handleDeleteGeneratedVideo}
+            />
+          </div>
+        )}
       </div>
     </Card>
   )

@@ -66,6 +66,86 @@ export class GalleryService {
   }
 
   /**
+   * Load gallery items with pagination
+   */
+  static async loadUserGalleryPaginated(
+    generationType: GenerationType,
+    page: number,
+    pageSize: number,
+    options?: {
+      includeProcessing?: boolean
+    }
+  ): Promise<{ items: GalleryRow[]; total: number; totalPages: number }> {
+    try {
+      const supabase = await getClient()
+      if (!supabase) {
+        throw new Error('Supabase client not available')
+      }
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        console.warn('User not authenticated, cannot load gallery')
+        return { items: [], total: 0, totalPages: 0 }
+      }
+
+      const repository = new GalleryRepository(supabase)
+
+      // Build filters
+      const filters: Record<string, unknown> = {
+        user_id: user.id,
+        generation_type: generationType,
+      }
+
+      // If not including processing, filter by public_url not null
+      if (!options?.includeProcessing) {
+        // Note: Supabase doesn't support 'not null' in filters object
+        // We'll handle this with a custom query
+        const result = await repository.getPaginated(filters, {
+          page,
+          pageSize,
+          orderBy: 'created_at',
+          ascending: false,
+        })
+
+        if (result.error) {
+          console.error(`Error fetching ${generationType} gallery:`, result.error)
+          return { items: [], total: 0, totalPages: 0 }
+        }
+
+        // Filter out items without public_url
+        const filteredItems = result.data.filter(item => item.public_url !== null)
+
+        return {
+          items: filteredItems,
+          total: result.total,
+          totalPages: result.totalPages,
+        }
+      }
+
+      const result = await repository.getPaginated(filters, {
+        page,
+        pageSize,
+        orderBy: 'created_at',
+        ascending: false,
+      })
+
+      if (result.error) {
+        console.error(`Error fetching ${generationType} gallery:`, result.error)
+        return { items: [], total: 0, totalPages: 0 }
+      }
+
+      return {
+        items: result.data,
+        total: result.total,
+        totalPages: result.totalPages,
+      }
+    } catch (error) {
+      console.error(`Failed to load ${generationType} gallery:`, error)
+      return { items: [], total: 0, totalPages: 0 }
+    }
+  }
+
+  /**
    * Delete a gallery item (database entry and storage file)
    */
   static async deleteItem(itemId: string): Promise<DeleteResult> {

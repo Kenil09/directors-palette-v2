@@ -5,16 +5,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { ImageIcon, Search, Trash2 } from 'lucide-react'
-import { ViewMode } from "../../hooks/useGalleryLogic"
 
 interface GalleryHeaderProps {
   totalImages: number
   totalCredits: number
   searchQuery: string
-  viewMode: ViewMode
   selectedCount: number
   onSearchChange: (query: string) => void
-  onViewModeChange: (mode: ViewMode) => void
   onClearSelection: () => void
   onDeleteSelected: () => void
 }
@@ -23,10 +20,8 @@ export function GalleryHeader({
   totalImages,
   totalCredits,
   searchQuery,
-  viewMode,
   selectedCount,
   onSearchChange,
-  onViewModeChange,
   onClearSelection,
   onDeleteSelected
 }: GalleryHeaderProps) {
@@ -59,16 +54,6 @@ export function GalleryHeader({
               className="pl-9 w-full h-8"
             />
           </div>
-
-          {/* View Mode Toggle */}
-          <Button
-            variant={viewMode === 'grid' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onViewModeChange('grid')}
-          >
-            Grid
-          </Button>
-
           {/* Selection Actions */}
           {selectedCount > 0 && (
             <>

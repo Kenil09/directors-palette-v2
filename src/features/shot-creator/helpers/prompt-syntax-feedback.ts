@@ -1,5 +1,6 @@
-// Enhanced Dynamic Prompting System 
+// Enhanced Dynamic Prompting System
 // Supports bracket notation: [option1, option2, option3]
+// Supports pipe notation: prompt1 | prompt2 | prompt3
 // Supports wild cards: _wildcard_ (requires wild card library)
 
 import { parseWildCardPrompt, WildCard } from "./wildcard/parser"
@@ -7,6 +8,7 @@ import { parseWildCardPrompt, WildCard } from "./wildcard/parser"
 export interface DynamicPromptResult {
     isValid: boolean
     hasBrackets: boolean
+    hasPipes: boolean
     hasWildCards: boolean
     expandedPrompts: string[]
     originalPrompt: string
@@ -26,15 +28,74 @@ export interface DynamicPromptConfig {
 }
 
 const DEFAULT_CONFIG: DynamicPromptConfig = {
-    maxOptions: 10,        // Maximum bracket options allowed
+    maxOptions: 10,        // Maximum bracket/pipe options allowed
     maxPreview: 5,         // Maximum prompts to show in preview
     trimWhitespace: true   // Clean up spacing
 }
 
 /**
- * Parse dynamic prompt with bracket notation AND wild cards
- * Examples: 
+ * Parse pipe-separated prompts
+ * Example: "prompt1 | prompt2 | prompt3" → ["prompt1", "prompt2", "prompt3"]
+ */
+function parsePipePrompt(
+    prompt: string,
+    config: DynamicPromptConfig
+): DynamicPromptResult {
+    // Split by pipe character
+    let options = prompt.split('|')
+
+    if (config.trimWhitespace) {
+        options = options.map(option => option.trim()).filter(option => option.length > 0)
+    }
+
+    // Validate option count
+    if (options.length === 0) {
+        return {
+            isValid: false,
+            hasBrackets: false,
+            hasPipes: true,
+            hasWildCards: false,
+            expandedPrompts: [],
+            originalPrompt: prompt,
+            options: [],
+            previewCount: 0,
+            totalCount: 0
+        }
+    }
+
+    if (options.length > config.maxOptions) {
+        return {
+            isValid: false,
+            hasBrackets: false,
+            hasPipes: true,
+            hasWildCards: false,
+            expandedPrompts: [],
+            originalPrompt: prompt,
+            options,
+            previewCount: 0,
+            totalCount: options.length,
+            warnings: [`Too many pipe variations: ${options.length}. Maximum is ${config.maxOptions}.`]
+        }
+    }
+
+    return {
+        isValid: true,
+        hasBrackets: false,
+        hasPipes: true,
+        hasWildCards: false,
+        expandedPrompts: options,
+        originalPrompt: prompt,
+        options,
+        previewCount: Math.min(options.length, config.maxPreview),
+        totalCount: options.length
+    }
+}
+
+/**
+ * Parse dynamic prompt with bracket notation, pipe notation, AND wild cards
+ * Examples:
  * - "show an apple in [a garden, in a car, in space] half eaten"
+ * - "show an apple in a garden | show an apple in a car | show an apple in space"
  * - "show _character_ in _location_"
  * - "show _character_ [smiling, frowning] in _location_" (mixed syntax)
  * Returns expanded prompts and metadata
@@ -53,6 +114,7 @@ export function parseDynamicPrompt(
         return {
             isValid: wildCardResult.isValid,
             hasBrackets: false,
+            hasPipes: false,
             hasWildCards: true,
             expandedPrompts: wildCardResult.expandedPrompts,
             originalPrompt: prompt,
@@ -64,6 +126,11 @@ export function parseDynamicPrompt(
         }
     }
 
+    // Check if prompt contains pipe character (higher priority than brackets)
+    if (prompt.includes('|')) {
+        return parsePipePrompt(prompt, finalConfig)
+    }
+
     // Check if prompt contains brackets
     const bracketMatch = prompt.match(/\[([^\[\]]+)\]/)
 
@@ -71,6 +138,7 @@ export function parseDynamicPrompt(
         return {
             isValid: true,
             hasBrackets: false,
+            hasPipes: false,
             hasWildCards: false,
             expandedPrompts: [prompt],
             originalPrompt: prompt,
@@ -95,6 +163,7 @@ export function parseDynamicPrompt(
         return {
             isValid: false,
             hasBrackets: true,
+            hasPipes: false,
             hasWildCards: false,
             expandedPrompts: [],
             originalPrompt: prompt,
@@ -109,6 +178,7 @@ export function parseDynamicPrompt(
         return {
             isValid: false,
             hasBrackets: true,
+            hasPipes: false,
             hasWildCards: false,
             expandedPrompts: [],
             originalPrompt: prompt,
@@ -134,6 +204,7 @@ export function parseDynamicPrompt(
     return {
         isValid: true,
         hasBrackets: true,
+        hasPipes: false,
         hasWildCards: false,
         expandedPrompts,
         originalPrompt: prompt,
@@ -190,14 +261,39 @@ export function calculateDynamicPromptCost(
 }
 
 /**
- * Validate bracket syntax in real-time
+ * Validate bracket and pipe syntax in real-time
  */
 export function validateBracketSyntax(prompt: string): {
     isValid: boolean
     error?: string
     suggestion?: string
 } {
-    // Check for unmatched brackets
+    // Check for mixed bracket and pipe syntax
+    const hasBrackets = prompt.includes('[') || prompt.includes(']')
+    const hasPipes = prompt.includes('|')
+
+    if (hasBrackets && hasPipes) {
+        return {
+            isValid: false,
+            error: 'Cannot mix brackets and pipes',
+            suggestion: 'Use either [option1, option2] OR option1 | option2, not both'
+        }
+    }
+
+    // Validate pipe syntax
+    if (hasPipes) {
+        const pipeOptions = prompt.split('|').map(s => s.trim()).filter(s => s.length > 0)
+        if (pipeOptions.length === 0) {
+            return {
+                isValid: false,
+                error: 'Empty pipe variations',
+                suggestion: 'Add prompts separated by |: prompt1 | prompt2'
+            }
+        }
+        return { isValid: true }
+    }
+
+    // Validate bracket syntax
     const openBrackets = (prompt.match(/\[/g) || []).length
     const closeBrackets = (prompt.match(/\]/g) || []).length
 

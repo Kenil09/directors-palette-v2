@@ -9,7 +9,6 @@ import { useReferenceNamePrompt } from '@/components/providers/PromptProvider'
 import { Pagination } from './Pagination'
 import { useGalleryLogic } from "../../hooks/useGalleryLogic"
 import { ImageCard } from "./ImageCard"
-import { ChainView } from "./ChainView"
 import { GalleryHeader } from "./GalleryHeader"
 import FullscreenModal from "./FullScreenModal"
 import { GeneratedImage } from '../../store/unified-gallery-store'
@@ -55,11 +54,9 @@ export function UnifiedImageGallery({
         handlePageChange,
         setFullscreenImage,
         selectedImages,
-        handleViewModeChange,
         handleClearSelection,
         handleDeleteSelected,
         handleImageSelect,
-        chains,
         updateImageReference
     } = useGalleryLogic(onSendToTab, onUseAsReference, onSendToShotAnimator, onSendToLayoutAnnotation, onSendToLibrary, onImageSelect)
 
@@ -150,9 +147,7 @@ export function UnifiedImageGallery({
                 totalCredits={totalCredits}
                 searchQuery={filters.searchQuery}
                 onSearchChange={handleSearchChange}
-                viewMode={filters.viewMode}
                 selectedCount={selectedImages.length}
-                onViewModeChange={handleViewModeChange}
                 onClearSelection={handleClearSelection}
                 onDeleteSelected={handleDeleteSelected}
             />
@@ -171,20 +166,6 @@ export function UnifiedImageGallery({
                             Start creating images in Shot Creator or Shot Editor
                         </p>
                     </div>
-                ) : filters.viewMode === 'chains' ? (
-                    <ChainView
-                        chains={chains}
-                        selectedImages={selectedImages}
-                        onImageSelect={handleImageSelect}
-                        onImageZoom={(imageUrl: string) => {
-                            const image = images.find((img: GeneratedImage) => img.url === imageUrl)
-                            setFullscreenImage(image || null)
-                        }}
-                        onImageCopy={handleCopyImage}
-                        onImageDownload={handleDownloadImage}
-                        onImageDelete={handleDeleteImage}
-                        onSendTo={currentTab ? handleSendTo : undefined}
-                    />
                 ) : (
                     <>
                         <ScrollArea className="h-[600px]">
