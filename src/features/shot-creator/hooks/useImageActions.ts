@@ -34,8 +34,9 @@ export function useImageActions() {
         return
       }
 
-      // Convert image to PNG if it's WebP or another unsupported format
-      if (blob.type === 'image/webp' || blob.type === 'image/avif') {
+      // Convert image to PNG - most browsers only support PNG in clipboard
+      // Only skip conversion if already PNG
+      if (blob.type !== 'image/png') {
         // Create an image element to convert the format
         const img = new Image()
         const objectUrl = URL.createObjectURL(blob)
@@ -69,9 +70,9 @@ export function useImageActions() {
           new ClipboardItem({ 'image/png': pngBlob })
         ])
       } else {
-        // Copy directly if already in supported format
+        // Copy directly if already PNG
         await (navigator.clipboard as { write: (items: ClipboardItem[]) => Promise<void> }).write([
-          new ClipboardItem({ [blob.type]: blob })
+          new ClipboardItem({ 'image/png': blob })
         ])
       }
 

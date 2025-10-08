@@ -68,16 +68,35 @@ export class GalleryService {
      */
     private static transformToGeneratedImage(item: GalleryRow): GeneratedImage {
         const metadata = item.metadata as GalleryMetadata || {}
+        const modelSettings = (metadata as { modelSettings?: Record<string, unknown> }).modelSettings || {}
+        const model = (metadata.model as string) || 'nano-banana'
+        const aspectRatio = (modelSettings.aspectRatio as string) ||
+            (modelSettings.aspect_ratio as string) ||
+            '16:9'
+        const resolution = (modelSettings.resolution as string) ||
+            (modelSettings.size as string) ||
+            '1024x1024'
+        const seed = (modelSettings.seed as number) || undefined
+        const customWidth = (modelSettings.width as number) ||
+            (modelSettings.custom_width as number) ||
+            undefined
+        const customHeight = (modelSettings.height as number) ||
+            (modelSettings.custom_height as number) ||
+            undefined
 
         return {
             id: item.id,
             url: item.public_url || '',
             prompt: metadata.prompt || '',
             source: 'shot-creator' as const,
-            model: 'nano-banana',
+            model,
             settings: {
-                aspectRatio: '16:9',
-                resolution: '1024x1024',
+                aspectRatio,
+                resolution,
+                seed,
+                custom_width: customWidth,
+                custom_height: customHeight,
+                aspect_ratio: aspectRatio,
             },
             metadata: {
                 createdAt: item.created_at,

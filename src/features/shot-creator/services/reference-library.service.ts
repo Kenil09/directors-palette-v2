@@ -67,9 +67,21 @@ export async function getReferences(
     try {
         const supabase = await getClient();
 
+        if (!supabase) {
+            throw new Error('Supabase client not available');
+        }
+
         // Get user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('User not authenticated');
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError) {
+            console.error('Authentication error in getReferences:', authError);
+            throw new Error(`Authentication failed: ${authError.message}`);
+        }
+
+        if (!user) {
+            throw new Error('User not authenticated');
+        }
 
         let query = supabase
             .from('reference')
@@ -116,9 +128,21 @@ export async function getReferencesPaginated(
     try {
         const supabase = await getClient();
 
+        if (!supabase) {
+            throw new Error('Supabase client not available');
+        }
+
         // Get user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('User not authenticated');
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError) {
+            console.error('Authentication error in getReferencesPaginated:', authError);
+            throw new Error(`Authentication failed: ${authError.message}`);
+        }
+
+        if (!user) {
+            throw new Error('User not authenticated');
+        }
 
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
@@ -163,8 +187,14 @@ export async function getReferencesPaginated(
             countQuery,
         ]);
 
-        if (dataError || countError) {
-            throw dataError || countError;
+        if (dataError) {
+            console.error('Data query error:', dataError);
+            throw new Error(`Failed to fetch references: ${dataError.message}`);
+        }
+
+        if (countError) {
+            console.error('Count query error:', countError);
+            throw new Error(`Failed to count references: ${countError.message}`);
         }
 
         const total = count || 0;
@@ -177,12 +207,21 @@ export async function getReferencesPaginated(
             error: null
         };
     } catch (error) {
-        console.error('Error fetching paginated references:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        console.error('Error fetching paginated references:', {
+            message: errorMessage,
+            error,
+            page,
+            pageSize,
+            category
+        });
+
+        // Return error details
         return {
             data: null,
             total: 0,
             totalPages: 0,
-            error: error as Error
+            error: error instanceof Error ? error : new Error(errorMessage)
         };
     }
 }

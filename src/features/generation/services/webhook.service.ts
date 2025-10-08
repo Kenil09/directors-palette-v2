@@ -68,16 +68,7 @@ export class WebhookService {
 
     // Handle succeeded status
     if (status === 'succeeded' && output) {
-      try {
-        await this.handleSuccessfulPrediction(galleryEntry, output, input);
-      } catch (error) {
-        console.error(`Error processing successful prediction ${id}:`, error);
-        await this.updateGalleryWithError(
-          id,
-          galleryEntry,
-          error instanceof Error ? error.message : 'Processing failed'
-        );
-      }
+      await this.handleSuccessfulPrediction(galleryEntry, output, input);
       return;
     }
 

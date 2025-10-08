@@ -182,6 +182,14 @@ export class ImageGenerationService {
       errors.push('Qwen Image Edit supports only 1 input image')
     }
 
+    // Aspect ratio validation - qwen-image-edit has specific requirements
+    if (settings.aspectRatio) {
+      const validRatios = ['1:1', '16:9', '9:16', '4:3', '3:4', 'match_input_image']
+      if (!validRatios.includes(settings.aspectRatio)) {
+        errors.push(`Aspect ratio must be one of: ${validRatios.join(', ')}`)
+      }
+    }
+
     // Output quality validation
     if (settings.outputQuality !== undefined &&
       (settings.outputQuality < 0 || settings.outputQuality > 100)) {
@@ -350,8 +358,13 @@ export class ImageGenerationService {
       image: settings.image,
     }
 
+    // Map aspect ratio to valid values, default to match_input_image
     if (settings.aspectRatio) {
-      replicateInput.aspect_ratio = settings.aspectRatio
+      const validRatios = ['1:1', '16:9', '9:16', '4:3', '3:4', 'match_input_image']
+      const aspectRatio = validRatios.includes(settings.aspectRatio)
+        ? settings.aspectRatio
+        : 'match_input_image'
+      replicateInput.aspect_ratio = aspectRatio
     }
 
     if (settings.seed !== undefined && settings.seed !== null) {
@@ -387,7 +400,8 @@ export class ImageGenerationService {
   static buildMetadata(input: ImageGenerationInput): Record<string, unknown> {
     return {
       prompt: input.prompt,
-      model: this.getReplicateModelId(input.model),
+      model: input.model,
+      replicateModel: this.getReplicateModelId(input.model),
       modelSettings: JSON.parse(JSON.stringify(input.modelSettings)), // Ensure JSON serializable
       has_reference_images: input.referenceImages && input.referenceImages.length > 0,
       reference_images_count: input.referenceImages?.length || 0,

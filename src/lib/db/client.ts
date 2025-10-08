@@ -22,18 +22,15 @@ export type TypedSupabaseClient = ReturnType<typeof createBrowserClient<Database
  * - Proper error handling for both environments
  */
 export async function getClient() {
-    if (
-        !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-        !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseKey) {
         throw new ConfigurationError(
             'Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY',
             'SUPABASE_CONFIG'
         )
     }
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     // Server-side client (SSR, API routes, Server Components)
     if (typeof window === 'undefined') {
@@ -60,7 +57,8 @@ export async function getClient() {
                     },
                 },
             })
-        } catch {
+        } catch (error) {
+            console.error('Failed to create server Supabase client:', error)
             throw new ConfigurationError(
                 'Failed to create server Supabase client. This might be due to missing Next.js context.',
                 'SUPABASE_SERVER_CLIENT'

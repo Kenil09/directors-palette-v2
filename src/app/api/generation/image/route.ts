@@ -16,13 +16,14 @@ const supabase = createClient<Database>(
 
 export async function POST(request: NextRequest) {
   try {
+    const body = await request.json();
     const {
       model,
       prompt,
       referenceImages,
       modelSettings,
       user_id,
-    } = await request.json();
+    } = body;
 
     // Validate required fields
     if (!model) {

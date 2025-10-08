@@ -20,16 +20,25 @@ export class StorageService {
   static async downloadAsset(
     url: string
   ): Promise<{ buffer: ArrayBuffer; contentType: string }> {
-    const response = await fetch(url);
+    try {
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to download asset from ${url}: ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Failed to download asset from ${url}: ${response.statusText}`);
+      }
+
+      const buffer = await response.arrayBuffer();
+      const contentType = response.headers.get('content-type') || 'application/octet-stream';
+
+      return { buffer, contentType };
+    } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        throw new Error(`Download timeout for ${url}: ${error.message}`);
+      }
+      throw error;
     }
-
-    const buffer = await response.arrayBuffer();
-    const contentType = response.headers.get('content-type') || 'application/octet-stream';
-
-    return { buffer, contentType };
   }
 
   /**

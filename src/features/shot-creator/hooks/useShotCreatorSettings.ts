@@ -16,14 +16,22 @@ export function useShotCreatorSettings() {
    */
   useEffect(() => {
     const loadSettings = async () => {
-      const supabase = await getClient()
-      if (!supabase) {
-        setIsInitialized(true);
-        return;
-      }
-
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const supabase = await getClient()
+        if (!supabase) {
+          console.warn('Supabase client not available, using default settings');
+          setIsInitialized(true);
+          return;
+        }
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError) {
+          console.error('Auth error loading settings:', authError);
+          setIsInitialized(true);
+          return;
+        }
+
         if (!user) {
           setIsInitialized(true);
           return;
@@ -49,20 +57,31 @@ export function useShotCreatorSettings() {
    */
   const updateSettings = useCallback(async (partialSettings: Partial<ShotCreatorSettings>) => {
     // Update local state immediately
-    const supabase = await getClient()
     setSettings(prev => {
       const newSettings = { ...prev, ...partialSettings };
 
       // Save to Supabase in background (don't wait)
-      if (supabase) {
-        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) {
-            shotCreatorSettingsService.updateSettings(user.id, partialSettings).catch(error => {
-              console.error('Failed to save settings to Supabase:', error);
-            });
+      getClient()
+        .then(async (supabase) => {
+          if (!supabase) {
+            console.warn('Supabase client not available, settings not persisted');
+            return;
           }
+
+          const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+          if (authError) {
+            console.error('Auth error saving settings:', authError);
+            return;
+          }
+
+          if (user) {
+            await shotCreatorSettingsService.updateSettings(user.id, partialSettings);
+          }
+        })
+        .catch(error => {
+          console.error('Failed to save settings to Supabase:', error);
         });
-      }
 
       return newSettings;
     });

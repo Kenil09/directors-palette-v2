@@ -7,6 +7,44 @@ import { GalleryService } from '../services/gallery.service'
 import { useUnifiedGalleryStore } from '../store/unified-gallery-store'
 import { getClient } from '@/lib/db/client'
 
+/**
+ * Retry a function with exponential backoff
+ */
+async function retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    baseDelay = 1000
+): Promise<T> {
+    let lastError: unknown
+
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await fn()
+        } catch (error) {
+            lastError = error
+            const errorMessage = error instanceof Error ? error.message : String(error)
+
+            // Don't retry on auth errors
+            if (errorMessage.includes('Authentication failed')) {
+                throw error
+            }
+
+            // Only retry on network errors
+            if (errorMessage.includes('Failed to fetch') || errorMessage.includes('ERR_NETWORK')) {
+                const delay = baseDelay * Math.pow(2, i)
+                console.log(`Retrying gallery load (${i + 1}/${maxRetries}) after ${delay}ms...`)
+                await new Promise(resolve => setTimeout(resolve, delay))
+                continue
+            }
+
+            // Don't retry on other errors
+            throw error
+        }
+    }
+
+    throw lastError
+}
+
 export function useGalleryLoader() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -24,9 +62,8 @@ export function useGalleryLoader() {
             setError(null)
 
             try {
-                const { images, total, totalPages } = await GalleryService.loadUserGalleryPaginated(
-                    currentPage,
-                    pageSize
+                const { images, total, totalPages } = await retryWithBackoff(() =>
+                    GalleryService.loadUserGalleryPaginated(currentPage, pageSize)
                 )
 
                 if (!mounted) return
@@ -49,10 +86,17 @@ export function useGalleryLoader() {
                                     filter: `user_id=eq.${user.id}`
                                 },
                                 async () => {
-                                    // Reload gallery when changes occur
-                                    const { images: updatedImages, total: updatedTotal, totalPages: updatedTotalPages } =
-                                        await GalleryService.loadUserGalleryPaginated(currentPage, pageSize)
-                                    loadImagesPaginated(updatedImages, updatedTotal, updatedTotalPages)
+                                    try {
+                                        // Reload gallery when changes occur
+                                        const { images: updatedImages, total: updatedTotal, totalPages: updatedTotalPages } =
+                                            await GalleryService.loadUserGalleryPaginated(currentPage, pageSize)
+                                        if (mounted) {
+                                            loadImagesPaginated(updatedImages, updatedTotal, updatedTotalPages)
+                                        }
+                                    } catch (realtimeError) {
+                                        // Silently handle realtime update errors to prevent UI disruption
+                                        console.warn('Realtime gallery update failed (non-critical):', realtimeError)
+                                    }
                                 }
                             )
                             .subscribe()

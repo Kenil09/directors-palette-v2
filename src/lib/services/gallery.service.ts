@@ -83,7 +83,11 @@ export class GalleryService {
       }
 
       const { data: { user }, error: authError } = await supabase.auth.getUser()
-      if (authError || !user) {
+      if (authError) {
+        console.error('Authentication error:', authError)
+        throw new Error(`Authentication failed: ${authError.message}`)
+      }
+      if (!user) {
         console.warn('User not authenticated, cannot load gallery')
         return { items: [], total: 0, totalPages: 0 }
       }
@@ -109,7 +113,7 @@ export class GalleryService {
 
         if (result.error) {
           console.error(`Error fetching ${generationType} gallery:`, result.error)
-          return { items: [], total: 0, totalPages: 0 }
+          throw new Error(`Database query failed: ${result.error}`)
         }
 
         // Filter out items without public_url
@@ -131,7 +135,7 @@ export class GalleryService {
 
       if (result.error) {
         console.error(`Error fetching ${generationType} gallery:`, result.error)
-        return { items: [], total: 0, totalPages: 0 }
+        throw new Error(`Database query failed: ${result.error}`)
       }
 
       return {
@@ -140,7 +144,13 @@ export class GalleryService {
         totalPages: result.totalPages,
       }
     } catch (error) {
-      console.error(`Failed to load ${generationType} gallery:`, error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error(`Failed to load ${generationType} gallery:`, errorMessage, error)
+      if (errorMessage.includes('Failed to fetch')) {
+        console.error('Network error detected. Possible causes:')
+        console.error('1. Supabase credentials missing or invalid')
+        console.error('2. Network connectivity issues')
+      }
       return { items: [], total: 0, totalPages: 0 }
     }
   }

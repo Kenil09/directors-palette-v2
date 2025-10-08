@@ -24,48 +24,64 @@ export class SupabaseSettingsRepository implements ISettingsRepository {
   }
 
   async upsert(input: UpsertSettingsInput): Promise<SettingsRepositoryResult> {
-    const supabase = await this.getSupabaseClient()
+    try {
+      const supabase = await this.getSupabaseClient()
 
-    // First, get existing settings to merge config
-    const existing = await this.findByUserId(input.user_id)
+      // First, get existing settings to merge config
+      let existing: SettingsRepositoryResult | null = null
+      try {
+        existing = await this.findByUserId(input.user_id)
+      } catch (error) {
+        // If findByUserId fails, log and continue with new config only
+        console.warn('Failed to load existing settings, will create new:', error)
+      }
 
-    // Merge existing config with new config (new config overrides old)
-    // Ensure we're working with Json compatible types
-    let mergedConfig: Json
+      // Merge existing config with new config (new config overrides old)
+      // Ensure we're working with Json compatible types
+      let mergedConfig: Json
 
-    if (existing && typeof existing.data.config === 'object' && existing.data.config !== null) {
-      // Merge the configs instead of shallow merge
-      mergedConfig = this.deepMerge(
-        existing.data.config as Record<string, unknown>,
-        input.config as Record<string, unknown>
-      ) as Json
-    } else {
-      mergedConfig = input.config as Json
-    }
+      if (existing && typeof existing.data.config === 'object' && existing.data.config !== null) {
+        // Merge the configs instead of shallow merge
+        mergedConfig = this.deepMerge(
+          existing.data.config as Record<string, unknown>,
+          input.config as Record<string, unknown>
+        ) as Json
+      } else {
+        mergedConfig = input.config as Json
+      }
 
-    // Use Supabase's built-in upsert functionality
-    const { data: result, error } = await supabase
-      .from('settings')
-      .upsert({
-        user_id: input.user_id,
-        config: mergedConfig
-      }, {
-        onConflict: 'user_id'
-      })
-      .select()
-      .single()
+      // Use Supabase's built-in upsert functionality
+      const { data: result, error } = await supabase
+        .from('settings')
+        .upsert({
+          user_id: input.user_id,
+          config: mergedConfig
+        }, {
+          onConflict: 'user_id'
+        })
+        .select()
+        .single()
 
-    if (error) {
-      throw new DatabaseError(`Failed to upsert settings: ${error.message}`, error)
-    }
+      if (error) {
+        throw new DatabaseError(`Failed to upsert settings: ${error.message}`, error)
+      }
 
-    if (!result) {
-      throw new DatabaseError('No result returned from settings upsert', null)
-    }
+      if (!result) {
+        throw new DatabaseError('No result returned from settings upsert', null)
+      }
 
-    return {
-      id: result.id,
-      data: result
+      return {
+        id: result.id,
+        data: result
+      }
+    } catch (error) {
+      // Handle network errors or client initialization errors
+      if (error instanceof DatabaseError) {
+        throw error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new DatabaseError(`Failed to upsert settings: ${errorMessage}`, error)
     }
   }
 
@@ -96,10 +112,6 @@ export class SupabaseSettingsRepository implements ISettingsRepository {
       .single()
 
     if (error) {
-      // If no record found, return null instead of throwing error
-      if (error.code === 'PGRST116') {
-        return null
-      }
       throw new DatabaseError(`Failed to find settings: ${error.message}`, error)
     }
 

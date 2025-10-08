@@ -64,13 +64,18 @@ export class ShotCreatorSettingsService {
    */
   async updateSettings(userId: string, partialSettings: Partial<ShotCreatorSettings>): Promise<void> {
     try {
-      // Get current settings
-      const currentSettings = await this.loadSettings(userId);
+      // Get current settings (returns null on error)
+      let currentSettings: ShotCreatorSettings | null = null
+      try {
+        currentSettings = await this.loadSettings(userId);
+      } catch (error) {
+        console.warn('Failed to load current settings, using defaults:', error);
+      }
 
       // Merge with new settings
       const mergedSettings: ShotCreatorSettings = {
         ...this.getDefaultSettings(),
-        ...currentSettings,
+        ...(currentSettings || {}),
         ...partialSettings
       };
 

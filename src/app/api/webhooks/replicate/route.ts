@@ -62,10 +62,19 @@ export async function POST(request: NextRequest) {
     console.log(`Webhook received for prediction ${event.id}: ${event.status}`);
 
     // 7. Process the prediction asynchronously
-    await WebhookService.processCompletedPrediction(event);
+    try {
+      await WebhookService.processCompletedPrediction(event);
 
-    // 8. Return success immediately (Replicate expects quick response)
-    return NextResponse.json({ received: true });
+      // 8. Return success immediately (Replicate expects quick response)
+      return NextResponse.json({ received: true });
+    } catch (processingError) {
+      // If processing fails (e.g., download timeout), return 500 so Replicate retries
+      console.error('Prediction processing error:', processingError);
+      return NextResponse.json(
+        { error: 'Failed to process prediction' },
+        { status: 500 }
+      );
+    }
 
   } catch (error) {
     console.error('Webhook processing error:', error);
