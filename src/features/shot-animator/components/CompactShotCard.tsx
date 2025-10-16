@@ -21,6 +21,7 @@ interface CompactShotCardProps {
   onDelete: () => void
   onManageReferences: () => void
   onManageLastFrame: () => void
+  onRetryVideo?: (galleryId: string) => void
 }
 
 export function CompactShotCard({
@@ -30,7 +31,8 @@ export function CompactShotCard({
   onUpdate,
   onDelete,
   onManageReferences,
-  onManageLastFrame
+  onManageLastFrame,
+  onRetryVideo
 }: CompactShotCardProps) {
   const handleToggleSelect = () => {
     onUpdate({ ...config, includeInBatch: !config.includeInBatch })
@@ -189,6 +191,7 @@ export function CompactShotCard({
             <CompactVideoCard
               videos={config.generatedVideos}
               onDeleteVideo={handleDeleteGeneratedVideo}
+              onRetryVideo={onRetryVideo}
             />
           </div>
         )}

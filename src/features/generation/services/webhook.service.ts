@@ -66,33 +66,61 @@ export class WebhookService {
       return;
     }
 
-    // Handle succeeded status
-    if (status === 'succeeded' && output) {
-      await this.handleSuccessfulPrediction(galleryEntry, output, input);
-      return;
-    }
+    try {
+      // Handle starting status
+      if (status === 'starting') {
+        await this.updateGalleryStatus(id, 'processing', null);
+        return;
+      }
 
-    // Handle failed status
-    if (status === 'failed') {
-      console.error(`Prediction ${id} failed:`, error);
-      await this.updateGalleryWithError(
-        id,
-        galleryEntry,
-        error?.toString() || 'Prediction failed'
-      );
-      return;
-    }
+      // Handle processing status
+      if (status === 'processing') {
+        await this.updateGalleryStatus(id, 'processing', null);
+        return;
+      }
 
-    // Handle canceled status
-    if (status === 'canceled') {
-      await this.updateGalleryStatus(id, 'canceled', 'Prediction was canceled');
-      return;
-    }
+      // Handle succeeded status
+      if (status === 'succeeded' && output) {
+        await this.handleSuccessfulPrediction(galleryEntry, output, input);
+        return;
+      }
 
-    // Handle processing status (optional - for progress updates)
-    if (status === 'processing') {
-      await this.updateGalleryStatus(id, 'processing', null);
-      return;
+      // Handle failed status
+      if (status === 'failed') {
+        console.error(`Prediction ${id} failed:`, error);
+        await this.updateGalleryWithError(
+          id,
+          galleryEntry,
+          error?.toString() || 'Prediction failed'
+        );
+        return;
+      }
+
+      // Handle canceled status
+      if (status === 'canceled') {
+        await this.updateGalleryStatus(id, 'canceled', 'Prediction was canceled');
+        return;
+      }
+
+      // Handle succeeded with no output (edge case)
+      if (status === 'succeeded' && !output) {
+        console.error(`Prediction ${id} succeeded but has no output`);
+        await this.updateGalleryWithError(
+          id,
+          galleryEntry,
+          'Generation succeeded but produced no output'
+        );
+        return;
+      }
+    } catch (processingError) {
+      // If any processing step fails (download, upload, etc.), mark as failed
+      console.error(`Error processing prediction ${id}:`, processingError);
+      const errorMessage = processingError instanceof Error
+        ? processingError.message
+        : 'Failed to process prediction results';
+
+      await this.updateGalleryWithError(id, galleryEntry, errorMessage);
+      throw processingError; // Re-throw so webhook endpoint returns 500 for Replicate to retry
     }
   }
 

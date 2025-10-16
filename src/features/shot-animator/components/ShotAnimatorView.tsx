@@ -34,7 +34,7 @@ import VideoPreviewsModal from "./VideoPreviewsModal"
 export function ShotAnimatorView() {
   // Auth and hooks
   const { user } = useAuth()
-  const { isGenerating, generateVideos } = useVideoGeneration()
+  const { isGenerating, generateVideos, retrySingleVideo } = useVideoGeneration()
   const { galleryImages, currentPage, totalPages, loadPage } = useGallery(true, 6)
   const { shotAnimator, updateShotAnimatorSettings } = useSettings()
 
@@ -277,6 +277,88 @@ export function ShotAnimatorView() {
     await updateShotAnimatorSettings({ modelSettings: newSettings })
   }
 
+  const handleRetryVideo = async (shotConfigId: string, galleryId: string) => {
+    if (!user?.id) {
+      console.error('User not authenticated')
+      return
+    }
+
+    // Find the shot config
+    const shotConfig = shotConfigs.find((c) => c.id === shotConfigId)
+    if (!shotConfig) {
+      console.error('Shot config not found')
+      return
+    }
+
+    // Update video status to 'processing' before retrying
+    const updatedConfigs = shotConfigs.map((config) => {
+      if (config.id === shotConfigId) {
+        const updatedVideos = config.generatedVideos?.map((video) => {
+          if (video.galleryId === galleryId) {
+            return {
+              ...video,
+              status: 'processing' as const,
+              error: undefined
+            }
+          }
+          return video
+        })
+        return { ...config, generatedVideos: updatedVideos }
+      }
+      return config
+    })
+    setShotConfigs(updatedConfigs)
+
+    // Retry the video generation
+    const result = await retrySingleVideo(
+      shotConfig,
+      selectedModel,
+      modelSettings[selectedModel],
+      user.id
+    )
+
+    // Update the generatedVideos array with new galleryId if successful
+    if (result.success && result.galleryId) {
+      const finalConfigs = shotConfigs.map((config) => {
+        if (config.id === shotConfigId) {
+          const updatedVideos = config.generatedVideos?.map((video) => {
+            if (video.galleryId === galleryId) {
+              return {
+                ...video,
+                galleryId: result.galleryId!,
+                status: 'processing' as const,
+                error: undefined
+              }
+            }
+            return video
+          })
+          return { ...config, generatedVideos: updatedVideos }
+        }
+        return config
+      })
+      setShotConfigs(finalConfigs)
+    } else if (!result.success) {
+      // If retry failed, update status back to failed with error
+      const failedConfigs = shotConfigs.map((config) => {
+        if (config.id === shotConfigId) {
+          const updatedVideos = config.generatedVideos?.map((video) => {
+            if (video.galleryId === galleryId) {
+              return {
+                ...video,
+                status: 'failed' as const,
+                error: result.error || 'Retry failed'
+              }
+            }
+            return video
+          })
+          return { ...config, generatedVideos: updatedVideos }
+        }
+        return config
+      })
+      setShotConfigs(failedConfigs)
+    }
+  }
+
   const currentRefEditConfig = shotConfigs.find((c) => c.id === refEditState.configId)
   const currentLastFrameConfig = shotConfigs.find((c) => c.id === lastFrameEditState.configId)
 
@@ -411,6 +493,7 @@ export function ShotAnimatorView() {
                     onDelete={() => handleDeleteShot(config.id)}
                     onManageReferences={() => setRefEditState({ isOpen: true, configId: config.id })}
                     onManageLastFrame={() => setLastFrameEditState({ isOpen: true, configId: config.id })}
+                    onRetryVideo={(galleryId) => handleRetryVideo(config.id, galleryId)}
                   />
                 ))}
               </div>

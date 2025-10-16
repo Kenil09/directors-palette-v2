@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       model: replicateModelId,
       input: replicateInput,
       webhook: webhookUrl,
-      webhook_events_filter: ['completed'],
+      webhook_events_filter: ['start', 'completed'],
     });
 
     // Build metadata for storage

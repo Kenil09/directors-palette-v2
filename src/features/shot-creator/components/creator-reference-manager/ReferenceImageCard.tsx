@@ -69,14 +69,16 @@ export function ReferenceImageCard({
             >
                 {image ? (
                     <>
-                        <Image
-                            src={image.preview}
-                            alt={`Reference ${index + 1}`}
-                            width={250}
-                            height={250}
-                            className="w-full h-full object-cover md:object-contain cursor-pointer"
-                            onClick={() => setFullscreenImage(image)}
-                        />
+                        <div className="w-full aspect-square relative">
+                            <Image
+                                src={image.preview}
+                                alt={`Reference ${index + 1}`}
+                                fill
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 53vw"
+                                className="w-full h-full object-cover cursor-pointer"
+                                onClick={() => setFullscreenImage(image)}
+                            />
+                        </div>
                         {/* Fullscreen button */}
                         <Button
                             size="sm"

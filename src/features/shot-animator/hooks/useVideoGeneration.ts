@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { toast } from '@/hooks/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import type {
   AnimationModel,
   ShotAnimationConfig,
@@ -27,9 +27,16 @@ interface UseVideoGenerationReturn {
     modelSettings: ModelSettings,
     userId: string
   ) => Promise<GenerationResult[]>
+  retrySingleVideo: (
+    shot: ShotAnimationConfig,
+    model: AnimationModel,
+    modelSettings: ModelSettings,
+    userId: string
+  ) => Promise<GenerationResult>
 }
 
 export function useVideoGeneration(): UseVideoGenerationReturn {
+  const { toast } = useToast()
   const [isGenerating, setIsGenerating] = useState(false)
 
   /**
@@ -232,8 +239,57 @@ export function useVideoGeneration(): UseVideoGenerationReturn {
     }
   }
 
+  const retrySingleVideo = async (
+    shot: ShotAnimationConfig,
+    model: AnimationModel,
+    modelSettings: ModelSettings,
+    userId: string
+  ): Promise<GenerationResult> => {
+    setIsGenerating(true)
+
+    try {
+      toast({
+        title: 'Retrying Generation',
+        description: `Retrying video generation for ${shot.imageName}`,
+      })
+
+      // Generate the video using existing logic
+      const result = await generateSingleVideo(shot, model, modelSettings, userId)
+
+      if (result.success) {
+        toast({
+          title: 'Retry Started',
+          description: 'Video generation has been restarted. You\'ll see it when complete.',
+        })
+      } else {
+        toast({
+          title: 'Retry Failed',
+          description: result.error || 'Failed to retry video generation',
+          variant: 'destructive',
+        })
+      }
+
+      return result
+    } catch (error) {
+      console.error('Retry generation error:', error)
+      toast({
+        title: 'Retry Error',
+        description: error instanceof Error ? error.message : 'Failed to retry video generation',
+        variant: 'destructive',
+      })
+      return {
+        shotId: shot.id,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   return {
     isGenerating,
     generateVideos,
+    retrySingleVideo,
   }
 }

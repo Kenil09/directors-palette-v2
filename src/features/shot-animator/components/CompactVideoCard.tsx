@@ -9,7 +9,8 @@ import {
   Download,
   Maximize2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  RotateCw
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -20,11 +21,13 @@ import { FullscreenVideoModal } from './FullscreenVideoModal'
 interface CompactVideoCardProps {
   videos: ShotGeneratedVideo[]
   onDeleteVideo?: (galleryId: string) => void
+  onRetryVideo?: (galleryId: string) => void
 }
 
 export function CompactVideoCard({
   videos,
-  onDeleteVideo
+  onDeleteVideo,
+  onRetryVideo
 }: CompactVideoCardProps) {
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
@@ -91,11 +94,28 @@ export function CompactVideoCard({
         )
       case 'failed':
         return (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-900/90">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-900/90 group">
             <AlertCircle className="h-8 w-8 text-red-400 mb-2" />
             <p className="text-xs text-red-300">Failed</p>
             {video.error && (
               <p className="text-xs text-red-400 mt-1 px-2 text-center">{video.error}</p>
+            )}
+            {/* Retry button overlay for failed videos */}
+            {onRetryVideo && (
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRetryVideo(video.galleryId)
+                  }}
+                  className="h-8 w-8 bg-purple-600 hover:bg-purple-700 text-white"
+                  title="Retry generation"
+                >
+                  <RotateCw className="h-4 w-4" />
+                </Button>
+              </div>
             )}
           </div>
         )
@@ -136,9 +156,8 @@ export function CompactVideoCard({
     }
   }
 
-  const visibleVideos = videos.filter(
-    (video) => video.status !== 'failed'
-  )
+  // Show all videos including failed ones (so users can retry)
+  const visibleVideos = videos
 
   if (visibleVideos.length === 0) return null
 
